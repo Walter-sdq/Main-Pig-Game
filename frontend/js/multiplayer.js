@@ -1,5 +1,5 @@
-// Multiplayer functionality for Pig Game
-class MultiplayerGame {
+// Multiplayer client for Pig Game
+class MultiplayerClient {
   constructor() {
     this.socket = null;
     this.playerId = null;
@@ -8,25 +8,24 @@ class MultiplayerGame {
     this.isConnected = false;
     this.gameState = null;
     this.isSpectating = false;
+    this.pendingRequestFrom = null;
     
     this.initializeUI();
   }
 
   initializeUI() {
-    // Create multiplayer UI elements
     this.createMultiplayerModal();
     this.createGameRequestModal();
-    this.createPlayersPanel();
-    
-    // Add multiplayer button to main game
+    this.createGamePanel();
     this.addMultiplayerButton();
+    this.setupEventListeners();
   }
 
   createMultiplayerModal() {
     const modal = document.createElement('div');
     modal.className = 'modal multiplayer-modal hidden';
     modal.innerHTML = `
-      <button class="close-modal-btn">&times;</button>
+      <button class="close-modal-btn multiplayer-close">&times;</button>
       <h2>🌐 Multiplayer Lobby</h2>
       <div class="connection-status">
         <div class="status-indicator offline"></div>
@@ -43,20 +42,16 @@ class MultiplayerGame {
         </div>
         <div class="online-players">
           <h3>Online Players</h3>
-          <div id="players-list"></div>
+          <div id="players-list">No other players online</div>
         </div>
         <div class="active-games">
           <h3>Active Games (Click to Watch)</h3>
-          <div id="games-list"></div>
+          <div id="games-list">No active games</div>
         </div>
       </div>
     `;
     
     document.querySelector('main').appendChild(modal);
-    
-    // Add event listeners
-    document.getElementById('connect-btn').addEventListener('click', () => this.connectToLobby());
-    modal.querySelector('.close-modal-btn').addEventListener('click', () => this.closeMultiplayerModal());
   }
 
   createGameRequestModal() {
@@ -72,39 +67,25 @@ class MultiplayerGame {
     `;
     
     document.querySelector('main').appendChild(modal);
-    
-    document.getElementById('accept-request').addEventListener('click', () => this.acceptGameRequest());
-    document.getElementById('decline-request').addEventListener('click', () => this.declineGameRequest());
   }
 
-  createPlayersPanel() {
+  createGamePanel() {
     const panel = document.createElement('div');
-    panel.className = 'players-panel hidden';
+    panel.className = 'game-panel hidden';
     panel.innerHTML = `
       <div class="panel-header">
-        <h3>Game Info</h3>
+        <h3 id="game-title">Game Info</h3>
         <button id="leave-game-btn">Leave Game</button>
       </div>
-      <div class="game-players">
-        <div class="player-card" id="player-1-card">
-          <span class="player-name"></span>
-          <span class="player-score">0</span>
-          <span class="current-score">Current: 0</span>
+      <div class="game-info">
+        <div class="player-info-card">
+          <span id="opponent-name">Opponent</span>
+          <span id="game-status">Waiting...</span>
         </div>
-        <div class="player-card" id="player-2-card">
-          <span class="player-name"></span>
-          <span class="player-score">0</span>
-          <span class="current-score">Current: 0</span>
-        </div>
-      </div>
-      <div class="spectator-info hidden">
-        <span>👁️ Watching Game</span>
       </div>
     `;
     
     document.querySelector('main').appendChild(panel);
-    
-    document.getElementById('leave-game-btn').addEventListener('click', () => this.leaveGame());
   }
 
   addMultiplayerButton() {
@@ -115,23 +96,40 @@ class MultiplayerGame {
       position: absolute;
       top: 4rem;
       right: 4rem;
-      background-color: rgba(255, 255, 255, 0.6);
-      backdrop-filter: blur(10px);
-      padding: 0.7rem 2.5rem;
-      border-radius: 50rem;
-      box-shadow: 0 1.75rem 3.5rem rgba(0, 0, 0, 0.1);
-      border: none;
-      font-family: inherit;
-      font-size: 1.8rem;
-      text-transform: uppercase;
-      cursor: pointer;
-      font-weight: 400;
-      transition: all 0.2s;
-      color: #444;
     `;
     
-    button.addEventListener('click', () => this.openMultiplayerModal());
     document.querySelector('main').appendChild(button);
+  }
+
+  setupEventListeners() {
+    // Multiplayer button
+    document.querySelector('.multiplayer-btn').addEventListener('click', () => {
+      this.openMultiplayerModal();
+    });
+
+    // Connect button
+    document.getElementById('connect-btn').addEventListener('click', () => {
+      this.connectToLobby();
+    });
+
+    // Close modal buttons
+    document.querySelector('.multiplayer-close').addEventListener('click', () => {
+      this.closeMultiplayerModal();
+    });
+
+    // Game request buttons
+    document.getElementById('accept-request').addEventListener('click', () => {
+      this.acceptGameRequest();
+    });
+
+    document.getElementById('decline-request').addEventListener('click', () => {
+      this.declineGameRequest();
+    });
+
+    // Leave game button
+    document.getElementById('leave-game-btn').addEventListener('click', () => {
+      this.leaveGame();
+    });
   }
 
   connectToLobby() {
@@ -171,6 +169,10 @@ class MultiplayerGame {
       this.updatePlayersList(players);
     });
 
+    this.socket.on('games_update', (games) => {
+      this.updateGamesList(games);
+    });
+
     this.socket.on('game_request', (data) => {
       this.showGameRequest(data);
     });
@@ -193,10 +195,6 @@ class MultiplayerGame {
 
     this.socket.on('score_held', (result) => {
       this.handleScoreHeld(result);
-    });
-
-    this.socket.on('player_switched', (game) => {
-      this.updateGameState(game);
     });
 
     this.socket.on('game_ended', (data) => {
@@ -241,18 +239,47 @@ class MultiplayerGame {
 
   updatePlayersList(players) {
     const playersList = document.getElementById('players-list');
-    playersList.innerHTML = '';
     
+    if (players.length === 0) {
+      playersList.innerHTML = 'No other players online';
+      return;
+    }
+    
+    playersList.innerHTML = '';
     players.forEach(player => {
       if (player.id !== this.playerId) {
         const playerElement = document.createElement('div');
         playerElement.className = 'player-item';
         playerElement.innerHTML = `
           <span>${player.name} (${player.id})</span>
-          <button onclick="multiplayerGame.requestGame('${player.id}')">Challenge</button>
+          <button onclick="multiplayerClient.requestGame('${player.id}')">Challenge</button>
         `;
         playersList.appendChild(playerElement);
       }
+    });
+  }
+
+  updateGamesList(games) {
+    const gamesList = document.getElementById('games-list');
+    
+    if (games.length === 0) {
+      gamesList.innerHTML = 'No active games';
+      return;
+    }
+    
+    gamesList.innerHTML = '';
+    games.forEach(game => {
+      const gameElement = document.createElement('div');
+      gameElement.className = 'game-item';
+      gameElement.innerHTML = `
+        <div class="game-info">
+          <span>${game.players.join(' vs ')}</span>
+          <small>Game ID: ${game.id}</small>
+          <small>Watchers: ${game.watchers}</small>
+        </div>
+        <button onclick="multiplayerClient.watchGame('${game.id}')">Watch</button>
+      `;
+      gamesList.appendChild(gameElement);
     });
   }
 
@@ -262,12 +289,19 @@ class MultiplayerGame {
     }
   }
 
+  watchGame(gameId) {
+    if (this.socket && this.isConnected) {
+      this.socket.emit('watch_game', gameId);
+    }
+  }
+
   showGameRequest(data) {
     const modal = document.querySelector('.game-request-modal');
     const message = document.getElementById('request-message');
     
     message.textContent = `${data.fromName} (${data.from}) wants to play with you!`;
     modal.classList.remove('hidden');
+    document.querySelector('.modal-overlay').classList.remove('hidden');
     
     this.pendingRequestFrom = data.from;
   }
@@ -291,15 +325,10 @@ class MultiplayerGame {
     this.gameId = game.id;
     this.isSpectating = false;
     
-    // Hide multiplayer modal and show game
     this.closeMultiplayerModal();
-    document.querySelector('.players-panel').classList.remove('hidden');
-    
-    // Update UI for multiplayer
-    this.updateGameUI(game);
-    
-    // Override game controls
+    this.showGamePanel(game);
     this.overrideGameControls();
+    this.updateGameUI(game);
   }
 
   startWatchingGame(game) {
@@ -307,39 +336,37 @@ class MultiplayerGame {
     this.gameId = game.id;
     this.isSpectating = true;
     
-    // Hide multiplayer modal and show game
     this.closeMultiplayerModal();
-    document.querySelector('.players-panel').classList.remove('hidden');
-    document.querySelector('.spectator-info').classList.remove('hidden');
-    
-    // Update UI for spectating
-    this.updateGameUI(game);
-    
-    // Disable game controls for spectators
+    this.showGamePanel(game, true);
     this.disableGameControls();
+    this.updateGameUI(game);
+  }
+
+  showGamePanel(game, watching = false) {
+    const panel = document.querySelector('.game-panel');
+    const title = document.getElementById('game-title');
+    const opponentName = document.getElementById('opponent-name');
+    const gameStatus = document.getElementById('game-status');
+    
+    panel.classList.remove('hidden');
+    
+    if (watching) {
+      title.textContent = '👁️ Watching Game';
+      opponentName.textContent = `${game.players.join(' vs ')}`;
+      gameStatus.textContent = 'Spectating';
+    } else {
+      title.textContent = 'Playing Game';
+      const opponent = game.players.find(id => id !== this.playerId);
+      opponentName.textContent = `vs ${game.playerNames[opponent]}`;
+      gameStatus.textContent = game.currentPlayer === this.playerId ? 'Your turn' : 'Opponent\'s turn';
+    }
   }
 
   updateGameUI(game) {
-    const player1Card = document.getElementById('player-1-card');
-    const player2Card = document.getElementById('player-2-card');
-    
+    // Update main game display
     const player1Id = game.players[0];
     const player2Id = game.players[1];
     
-    player1Card.querySelector('.player-name').textContent = game.playerNames[player1Id];
-    player2Card.querySelector('.player-name').textContent = game.playerNames[player2Id];
-    
-    player1Card.querySelector('.player-score').textContent = game.scores[player1Id];
-    player2Card.querySelector('.player-score').textContent = game.scores[player2Id];
-    
-    player1Card.querySelector('.current-score').textContent = `Current: ${game.currentScores[player1Id]}`;
-    player2Card.querySelector('.current-score').textContent = `Current: ${game.currentScores[player2Id]}`;
-    
-    // Highlight current player
-    player1Card.classList.toggle('active-player', game.currentPlayer === player1Id);
-    player2Card.classList.toggle('active-player', game.currentPlayer === player2Id);
-    
-    // Update main game UI
     document.getElementById('name--0').textContent = game.playerNames[player1Id];
     document.getElementById('name--1').textContent = game.playerNames[player2Id];
     document.getElementById('score--0').textContent = game.scores[player1Id];
@@ -347,18 +374,23 @@ class MultiplayerGame {
     document.getElementById('current--0').textContent = game.currentScores[player1Id];
     document.getElementById('current--1').textContent = game.currentScores[player2Id];
     
-    // Update active player in main UI
+    // Update active player
     document.querySelector('.player--0').classList.toggle('player--active', game.currentPlayer === player1Id);
     document.querySelector('.player--1').classList.toggle('player--active', game.currentPlayer === player2Id);
+    
+    // Update game status
+    if (!this.isSpectating) {
+      const gameStatus = document.getElementById('game-status');
+      gameStatus.textContent = game.currentPlayer === this.playerId ? 'Your turn' : 'Opponent\'s turn';
+    }
   }
 
   overrideGameControls() {
-    // Override roll dice button
     const rollBtn = document.querySelector('.btn--roll');
     const holdBtn = document.querySelector('.btn--hold');
     
     rollBtn.onclick = () => {
-      if (this.gameState && this.gameState.currentPlayer === this.playerId) {
+      if (this.gameState && this.gameState.currentPlayer === this.playerId && this.gameState.playing) {
         this.socket.emit('roll_dice', this.gameId);
       } else {
         alert("It's not your turn!");
@@ -366,7 +398,7 @@ class MultiplayerGame {
     };
     
     holdBtn.onclick = () => {
-      if (this.gameState && this.gameState.currentPlayer === this.playerId) {
+      if (this.gameState && this.gameState.currentPlayer === this.playerId && this.gameState.playing) {
         this.socket.emit('hold_score', this.gameId);
       } else {
         alert("It's not your turn!");
@@ -384,13 +416,21 @@ class MultiplayerGame {
     holdBtn.style.opacity = '0.5';
   }
 
+  enableGameControls() {
+    const rollBtn = document.querySelector('.btn--roll');
+    const holdBtn = document.querySelector('.btn--hold');
+    
+    rollBtn.disabled = false;
+    holdBtn.disabled = false;
+    rollBtn.style.opacity = '1';
+    holdBtn.style.opacity = '1';
+  }
+
   handleDiceRoll(result) {
-    // Update dice display
     const diceEl = document.querySelector('.dice');
     diceEl.src = `./img/dice-${result.dice}.png`;
     diceEl.classList.remove('hidden');
     
-    // Update game state
     this.gameState = result.game;
     this.updateGameUI(result.game);
   }
@@ -398,11 +438,6 @@ class MultiplayerGame {
   handleScoreHeld(result) {
     this.gameState = result.game;
     this.updateGameUI(result.game);
-  }
-
-  updateGameState(game) {
-    this.gameState = game;
-    this.updateGameUI(game);
   }
 
   handleGameEnd(data) {
@@ -418,24 +453,19 @@ class MultiplayerGame {
   }
 
   returnToLobby() {
-    // Reset game state
     this.gameState = null;
     this.gameId = null;
     this.isSpectating = false;
     
-    // Hide game panels
-    document.querySelector('.players-panel').classList.add('hidden');
-    document.querySelector('.spectator-info').classList.add('hidden');
+    document.querySelector('.game-panel').classList.add('hidden');
+    this.enableGameControls();
     
-    // Re-enable game controls
+    // Reset original game controls
     const rollBtn = document.querySelector('.btn--roll');
     const holdBtn = document.querySelector('.btn--hold');
-    rollBtn.disabled = false;
-    holdBtn.disabled = false;
-    rollBtn.style.opacity = '1';
-    holdBtn.style.opacity = '1';
+    rollBtn.onclick = window.rolleDice;
+    holdBtn.onclick = window.holdFunction;
     
-    // Show multiplayer modal
     this.openMultiplayerModal();
   }
 
@@ -451,9 +481,10 @@ class MultiplayerGame {
 
   closeGameRequestModal() {
     document.querySelector('.game-request-modal').classList.add('hidden');
+    document.querySelector('.modal-overlay').classList.add('hidden');
     this.pendingRequestFrom = null;
   }
 }
 
-// Initialize multiplayer game
-const multiplayerGame = new MultiplayerGame();
+// Initialize multiplayer client
+const multiplayerClient = new MultiplayerClient();

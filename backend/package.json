@@ -1,7 +1,7 @@
 {
   "name": "pig-game-backend",
   "version": "1.0.0",
-  "description": "Backend for Pig Game Multiplayer",
+  "description": "Backend server for Pig Game multiplayer",
   "main": "server.js",
   "type": "module",
   "scripts": {

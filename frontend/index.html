@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
     <link rel="stylesheet" href="./css/style.css" />
-    <title>Pig Game</title>
+    <link rel="stylesheet" href="./css/multiplayer.css" />
+    <title>Pig Game - Multiplayer</title>
     <link rel="shortcut icon" href="./img/dice-6.png" type="image/x-icon" />
   </head>
   <body>
@@ -32,8 +33,6 @@
       <button class="btn btn--roll">🎲 Roll dice</button>
       <button class="btn btn--hold">📥 Hold</button>
 
-      <!-- ====================================== -->
-
       <!-- Modal -->
       <button class="rules-btn show-modal" id="draggable-btn">📔</button>
       <div class="modal hidden">
@@ -45,7 +44,7 @@
           <li>Dice numbers range from 1 - 6.</li>
           <li>Whatever you roll gets added to your current Score.</li>
           <li>
-            Clicking <b>Hold</b>, The Score get recored and player turns are
+            Clicking <b>Hold</b>, The Score get recorded and player turns are
             switched.
           </li>
           <li>
@@ -64,19 +63,19 @@
       </div>
       <div class="modal-overlay hidden"></div>
 
-      <!-- Cofetti -->
+      <!-- Confetti -->
       <img
         class="confetti-img1 hidden"
         src="./img/confetti-animation.gif"
-        alt="confeffi Image2"
+        alt="confetti Image1"
       />
       <img
         class="confetti-img2 hidden"
         src="./img/confetti-animation.gif"
-        alt="confeffi Image2"
+        alt="confetti Image2"
       />
 
-      <!-- Transsition -->
+      <!-- Transition -->
       <img src="./img/nextGif.gif" alt="Next Gif" class="nextGif hidden" />
       <img src="./img/nextGif.gif" alt="Next Gif" class="nextGif2 hidden" />
 
@@ -86,7 +85,10 @@
         <div class="overlay"></div>
       </div>
     </main>
-    <!-- <script src="./js/modalBtn.js"></script> -->
+    
+    <!-- Socket.IO Client -->
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
     <script src="./js/script.js"></script>
+    <script src="./js/multiplayer.js"></script>
   </body>
 </html>

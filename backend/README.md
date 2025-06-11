@@ -33,13 +33,13 @@ A Node.js backend server for the multiplayer Pig Game using Express and Socket.I
 #### Server to Client
 - `join_success` - Successful lobby join
 - `players_update` - Updated list of lobby players
+- `games_update` - Updated list of active games
 - `game_request` - Incoming game request
 - `game_declined` - Game request was declined
 - `game_started` - Game has started
 - `watching_game` - Started watching a game
 - `dice_rolled` - Dice roll result
 - `score_held` - Score was held
-- `player_switched` - Turn switched to other player
 - `game_ended` - Game finished with winner
 - `player_left` - Player left the game
 - `player_disconnected` - Player disconnected
@@ -88,3 +88,10 @@ Same as the original Pig Game:
 - Rolling 1 loses current score and switches turns
 - Hold to add current score to total and switch turns
 - First to 100 points wins!
+
+## Architecture
+
+- **PlayerManager**: Handles player connections, unique IDs, and status
+- **GameManager**: Manages game creation, state, and logic
+- **Socket.IO**: Real-time communication between clients and server
+- **Express**: REST API for health checks and game info
