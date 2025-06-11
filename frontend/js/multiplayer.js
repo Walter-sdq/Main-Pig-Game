@@ -9,7 +9,7 @@ class MultiplayerClient {
     this.gameState = null;
     this.isSpectating = false;
     this.pendingRequestFrom = null;
-    
+
     this.initializeUI();
   }
 
@@ -50,7 +50,7 @@ class MultiplayerClient {
         </div>
       </div>
     `;
-    
+
     document.querySelector('main').appendChild(modal);
   }
 
@@ -65,7 +65,7 @@ class MultiplayerClient {
         <button id="decline-request" class="btn-decline">Decline</button>
       </div>
     `;
-    
+
     document.querySelector('main').appendChild(modal);
   }
 
@@ -84,7 +84,7 @@ class MultiplayerClient {
         </div>
       </div>
     `;
-    
+
     document.querySelector('main').appendChild(panel);
   }
 
@@ -97,7 +97,7 @@ class MultiplayerClient {
       top: 4rem;
       right: 4rem;
     `;
-    
+
     document.querySelector('main').appendChild(button);
   }
 
@@ -113,9 +113,11 @@ class MultiplayerClient {
     });
 
     // Close modal buttons
-    document.querySelector('.multiplayer-close').addEventListener('click', () => {
-      this.closeMultiplayerModal();
-    });
+    document
+      .querySelector('.multiplayer-close')
+      .addEventListener('click', () => {
+        this.closeMultiplayerModal();
+      });
 
     // Game request buttons
     document.getElementById('accept-request').addEventListener('click', () => {
@@ -134,86 +136,92 @@ class MultiplayerClient {
 
   connectToLobby() {
     const playerName = document.getElementById('player-name').value.trim();
-    const playerId = document.getElementById('player-id').value.trim().toUpperCase();
-    
+    const playerId = document
+      .getElementById('player-id')
+      .value.trim()
+      .toUpperCase();
+
     if (!playerName) {
       alert('Please enter your name');
       return;
     }
 
     // Connect to server
-    this.socket = io('http://localhost:3001');
-    
+    const socket = io(window.location.origin);
+    // const socket = io('http://localhost:3001');
+
     this.socket.on('connect', () => {
       console.log('Connected to server');
       this.isConnected = true;
       this.updateConnectionStatus(true);
-      
+
       // Join lobby
       this.socket.emit('join_lobby', {
         playerName: playerName,
-        playerId: playerId || null
+        playerId: playerId || null,
       });
     });
 
-    this.socket.on('join_success', (player) => {
+    this.socket.on('join_success', player => {
       this.playerId = player.id;
       this.playerName = player.name;
-      
-      document.getElementById('current-player-info').textContent = `${player.name} (${player.id})`;
+
+      document.getElementById(
+        'current-player-info'
+      ).textContent = `${player.name} (${player.id})`;
       document.querySelector('.player-setup').classList.add('hidden');
       document.querySelector('.lobby-content').classList.remove('hidden');
     });
 
-    this.socket.on('players_update', (players) => {
+    this.socket.on('players_update', players => {
       this.updatePlayersList(players);
     });
 
-    this.socket.on('games_update', (games) => {
+    this.socket.on('games_update', games => {
       this.updateGamesList(games);
     });
 
-    this.socket.on('game_request', (data) => {
+    this.socket.on('game_request', data => {
       this.showGameRequest(data);
     });
 
-    this.socket.on('game_declined', (data) => {
+    this.socket.on('game_declined', data => {
       alert(`${data.by} declined your game request`);
     });
 
-    this.socket.on('game_started', (game) => {
+    this.socket.on('game_started', game => {
       this.startMultiplayerGame(game);
     });
 
-    this.socket.on('watching_game', (game) => {
+    this.socket.on('watching_game', game => {
       this.startWatchingGame(game);
     });
 
-    this.socket.on('dice_rolled', (result) => {
+    this.socket.on('dice_rolled', result => {
       this.handleDiceRoll(result);
     });
 
-    this.socket.on('score_held', (result) => {
+    this.socket.on('score_held', result => {
       this.handleScoreHeld(result);
     });
 
-    this.socket.on('game_ended', (data) => {
+    this.socket.on('game_ended', data => {
       this.handleGameEnd(data);
     });
 
-    this.socket.on('player_left', (data) => {
+    this.socket.on('player_left', data => {
       alert(`${data.player} left the game`);
       if (data.gameEnded) {
         this.returnToLobby();
       }
     });
 
-    this.socket.on('player_disconnected', (data) => {
+    this.socket.on('player_disconnected', data => {
       alert(`${data.player} disconnected`);
       this.returnToLobby();
     });
 
-    this.socket.on('error', (message) => {
+    this.socket.on('error', message => {
       alert('Error: ' + message);
     });
 
@@ -227,7 +235,7 @@ class MultiplayerClient {
   updateConnectionStatus(connected) {
     const indicator = document.querySelector('.status-indicator');
     const text = document.querySelector('.status-text');
-    
+
     if (connected) {
       indicator.className = 'status-indicator online';
       text.textContent = 'Connected';
@@ -239,12 +247,12 @@ class MultiplayerClient {
 
   updatePlayersList(players) {
     const playersList = document.getElementById('players-list');
-    
+
     if (players.length === 0) {
       playersList.innerHTML = 'No other players online';
       return;
     }
-    
+
     playersList.innerHTML = '';
     players.forEach(player => {
       if (player.id !== this.playerId) {
@@ -261,12 +269,12 @@ class MultiplayerClient {
 
   updateGamesList(games) {
     const gamesList = document.getElementById('games-list');
-    
+
     if (games.length === 0) {
       gamesList.innerHTML = 'No active games';
       return;
     }
-    
+
     gamesList.innerHTML = '';
     games.forEach(game => {
       const gameElement = document.createElement('div');
@@ -277,7 +285,9 @@ class MultiplayerClient {
           <small>Game ID: ${game.id}</small>
           <small>Watchers: ${game.watchers}</small>
         </div>
-        <button onclick="multiplayerClient.watchGame('${game.id}')">Watch</button>
+        <button onclick="multiplayerClient.watchGame('${
+          game.id
+        }')">Watch</button>
       `;
       gamesList.appendChild(gameElement);
     });
@@ -298,11 +308,11 @@ class MultiplayerClient {
   showGameRequest(data) {
     const modal = document.querySelector('.game-request-modal');
     const message = document.getElementById('request-message');
-    
+
     message.textContent = `${data.fromName} (${data.from}) wants to play with you!`;
     modal.classList.remove('hidden');
     document.querySelector('.modal-overlay').classList.remove('hidden');
-    
+
     this.pendingRequestFrom = data.from;
   }
 
@@ -324,7 +334,7 @@ class MultiplayerClient {
     this.gameState = game;
     this.gameId = game.id;
     this.isSpectating = false;
-    
+
     this.closeMultiplayerModal();
     this.showGamePanel(game);
     this.overrideGameControls();
@@ -335,7 +345,7 @@ class MultiplayerClient {
     this.gameState = game;
     this.gameId = game.id;
     this.isSpectating = true;
-    
+
     this.closeMultiplayerModal();
     this.showGamePanel(game, true);
     this.disableGameControls();
@@ -347,9 +357,9 @@ class MultiplayerClient {
     const title = document.getElementById('game-title');
     const opponentName = document.getElementById('opponent-name');
     const gameStatus = document.getElementById('game-status');
-    
+
     panel.classList.remove('hidden');
-    
+
     if (watching) {
       title.textContent = '👁️ Watching Game';
       opponentName.textContent = `${game.players.join(' vs ')}`;
@@ -358,7 +368,8 @@ class MultiplayerClient {
       title.textContent = 'Playing Game';
       const opponent = game.players.find(id => id !== this.playerId);
       opponentName.textContent = `vs ${game.playerNames[opponent]}`;
-      gameStatus.textContent = game.currentPlayer === this.playerId ? 'Your turn' : 'Opponent\'s turn';
+      gameStatus.textContent =
+        game.currentPlayer === this.playerId ? 'Your turn' : "Opponent's turn";
     }
   }
 
@@ -366,39 +377,56 @@ class MultiplayerClient {
     // Update main game display
     const player1Id = game.players[0];
     const player2Id = game.players[1];
-    
-    document.getElementById('name--0').textContent = game.playerNames[player1Id];
-    document.getElementById('name--1').textContent = game.playerNames[player2Id];
+
+    document.getElementById('name--0').textContent =
+      game.playerNames[player1Id];
+    document.getElementById('name--1').textContent =
+      game.playerNames[player2Id];
     document.getElementById('score--0').textContent = game.scores[player1Id];
     document.getElementById('score--1').textContent = game.scores[player2Id];
-    document.getElementById('current--0').textContent = game.currentScores[player1Id];
-    document.getElementById('current--1').textContent = game.currentScores[player2Id];
-    
+    document.getElementById('current--0').textContent =
+      game.currentScores[player1Id];
+    document.getElementById('current--1').textContent =
+      game.currentScores[player2Id];
+
     // Update active player
-    document.querySelector('.player--0').classList.toggle('player--active', game.currentPlayer === player1Id);
-    document.querySelector('.player--1').classList.toggle('player--active', game.currentPlayer === player2Id);
-    
+    document
+      .querySelector('.player--0')
+      .classList.toggle('player--active', game.currentPlayer === player1Id);
+    document
+      .querySelector('.player--1')
+      .classList.toggle('player--active', game.currentPlayer === player2Id);
+
     // Update game status
     if (!this.isSpectating) {
       const gameStatus = document.getElementById('game-status');
-      gameStatus.textContent = game.currentPlayer === this.playerId ? 'Your turn' : 'Opponent\'s turn';
+      gameStatus.textContent =
+        game.currentPlayer === this.playerId ? 'Your turn' : "Opponent's turn";
     }
   }
 
   overrideGameControls() {
     const rollBtn = document.querySelector('.btn--roll');
     const holdBtn = document.querySelector('.btn--hold');
-    
+
     rollBtn.onclick = () => {
-      if (this.gameState && this.gameState.currentPlayer === this.playerId && this.gameState.playing) {
+      if (
+        this.gameState &&
+        this.gameState.currentPlayer === this.playerId &&
+        this.gameState.playing
+      ) {
         this.socket.emit('roll_dice', this.gameId);
       } else {
         alert("It's not your turn!");
       }
     };
-    
+
     holdBtn.onclick = () => {
-      if (this.gameState && this.gameState.currentPlayer === this.playerId && this.gameState.playing) {
+      if (
+        this.gameState &&
+        this.gameState.currentPlayer === this.playerId &&
+        this.gameState.playing
+      ) {
         this.socket.emit('hold_score', this.gameId);
       } else {
         alert("It's not your turn!");
@@ -409,7 +437,7 @@ class MultiplayerClient {
   disableGameControls() {
     const rollBtn = document.querySelector('.btn--roll');
     const holdBtn = document.querySelector('.btn--hold');
-    
+
     rollBtn.disabled = true;
     holdBtn.disabled = true;
     rollBtn.style.opacity = '0.5';
@@ -419,7 +447,7 @@ class MultiplayerClient {
   enableGameControls() {
     const rollBtn = document.querySelector('.btn--roll');
     const holdBtn = document.querySelector('.btn--hold');
-    
+
     rollBtn.disabled = false;
     holdBtn.disabled = false;
     rollBtn.style.opacity = '1';
@@ -430,7 +458,7 @@ class MultiplayerClient {
     const diceEl = document.querySelector('.dice');
     diceEl.src = `./img/dice-${result.dice}.png`;
     diceEl.classList.remove('hidden');
-    
+
     this.gameState = result.game;
     this.updateGameUI(result.game);
   }
@@ -456,16 +484,16 @@ class MultiplayerClient {
     this.gameState = null;
     this.gameId = null;
     this.isSpectating = false;
-    
+
     document.querySelector('.game-panel').classList.add('hidden');
     this.enableGameControls();
-    
+
     // Reset original game controls
     const rollBtn = document.querySelector('.btn--roll');
     const holdBtn = document.querySelector('.btn--hold');
     rollBtn.onclick = window.rolleDice;
     holdBtn.onclick = window.holdFunction;
-    
+
     this.openMultiplayerModal();
   }
 
