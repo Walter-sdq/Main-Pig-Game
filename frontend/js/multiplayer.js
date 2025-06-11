@@ -147,7 +147,7 @@ class MultiplayerClient {
     }
 
     // Connect to server
-    const socket = io(window.location.origin);
+    this.socket = io(window.location.origin);
     // const socket = io('http://localhost:3001');
 
     this.socket.on('connect', () => {
