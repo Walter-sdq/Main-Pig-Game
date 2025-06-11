@@ -46,7 +46,7 @@ frontend/
 ## 📄 Credits
 
 - Dice and confetti images from open-source resources.
-- Idea form Jonas Shedman.
+- Idea form Jonas Schmedtmann.
 - Frontend design Idea <a href="https://github.com/ARMSTRONG-AISOSA/pig-game">Armstrong Aisosa</a>
 - Built by <strong><i>Walter</i></strong>.
 
