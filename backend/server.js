@@ -45,7 +45,7 @@ app.get('/api/players', (req, res) => {
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
-  console.log(`Player connected: ${socket.id}`);
+  console.log(`\nPlayer connected: ${socket.id}`);
 
   // Player joins lobby
   socket.on('join_lobby', (playerData) => {
@@ -58,7 +58,7 @@ io.on('connection', (socket) => {
       io.to('lobby').emit('players_update', playerManager.getLobbyPlayers());
       io.to('lobby').emit('games_update', gameManager.getAllGames());
       
-      console.log(`${player.name} (${player.id}) joined lobby`);
+      console.log(`${player.name} (${player.id}) joined lobby\n`);
     } catch (error) {
       socket.emit('error', error.message);
     }
@@ -123,7 +123,7 @@ io.on('connection', (socket) => {
       io.to('lobby').emit('players_update', playerManager.getLobbyPlayers());
       io.to('lobby').emit('games_update', gameManager.getAllGames());
       
-      console.log(`Game ${game.id} started: ${requester.name} vs ${accepter.name}`);
+      console.log(`Game ${game.id} started: ${requester.name} vs ${accepter.name}\n`);
     } catch (error) {
       socket.emit('error', error.message);
     }
@@ -166,7 +166,7 @@ io.on('connection', (socket) => {
       socket.emit('watching_game', game);
       io.to('lobby').emit('players_update', playerManager.getLobbyPlayers());
       
-      console.log(`${player.name} is watching game ${gameId}`);
+      console.log(`${player.name} is watching game ${gameId}\n`);
     } catch (error) {
       socket.emit('error', error.message);
     }
@@ -275,7 +275,7 @@ io.on('connection', (socket) => {
     try {
       const player = playerManager.getPlayer(socket.id);
       if (player) {
-        console.log(`${player.name} (${player.id}) disconnected`);
+        console.log(`${player.name} (${player.id}) disconnected\n`);
         
         if (player.status === 'playing' && player.gameId) {
           const game = gameManager.getGame(player.gameId);

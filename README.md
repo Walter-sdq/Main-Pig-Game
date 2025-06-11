@@ -46,6 +46,8 @@ frontend/
 ## 📄 Credits
 
 - Dice and confetti images from open-source resources.
+- Idea form Jonas Shedman.
+- Frontend design Idea <a href="https://github.com/ARMSTRONG-AISOSA">Armstrong Aisosa</a>
 - Built by <strong><i>Walter</i></strong>.
 
 ---
