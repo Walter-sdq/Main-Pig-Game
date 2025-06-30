@@ -593,19 +593,23 @@ class MultiplayerClient {
   }
 
   handleScoreHeld(result) {
+    const diceEl = document.querySelector('.dice');
+    const prevPlayer = this.gameState ? this.gameState.currentPlayer : null;
     this.gameState = result.game;
     this.updateGameUI(result.game);
-    const prevPlayer = this.gameState ? this.gameState.currentPlayer : null;
+
+    // Detect player switch
     const newPlayer = result.game.currentPlayer;
     const prevIdx = result.game.players.indexOf(prevPlayer);
     const newIdx = result.game.players.indexOf(newPlayer);
-    // Show switch animation if player switched and both indices are valid
+
     if (prevPlayer && prevPlayer !== newPlayer && prevIdx !== -1 && newIdx !== -1) {
       showPlayerSwitchGif(newIdx, () => {
-        // Do NOT hide the dice here; keep it visible until next roll
+        // Optionally clear the previous player's current score
         if (prevIdx !== -1) {
           document.getElementById(`current--${prevIdx}`).textContent = 0;
         }
+        // Re-enable controls if it's this player's turn
         if (result.game.currentPlayer === this.playerId && result.game.playing) {
           this.enableGameControls();
         }
