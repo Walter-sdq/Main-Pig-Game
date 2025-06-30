@@ -210,19 +210,16 @@ btnNew.addEventListener('click', init);
 
 // KEY EVENTS //
 document.addEventListener('keydown', e => {
-  console.log(e);
   if (e.key === 'Escape') {
     reloadScreen();
   }
 });
 document.addEventListener('keydown', e => {
-  console.log(e);
   if (e.key === 'h') {
     holdFunction();
   }
 });
 document.addEventListener('keydown', e => {
-  console.log(e);
   if (e.key === 'r') {
     rolleDice();
   }

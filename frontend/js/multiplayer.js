@@ -34,6 +34,7 @@ class MultiplayerClient {
     this.createMultiplayerModal();
     this.createGameRequestModal();
     this.createGamePanel();
+    this.createNewGameRequestModal();
     this.addMultiplayerButton();
     this.setupEventListeners();
   }
@@ -83,6 +84,20 @@ class MultiplayerClient {
       </div>
     `;
 
+    document.querySelector('main').appendChild(modal);
+  }
+
+  createNewGameRequestModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal new-game-request-modal hidden';
+    modal.innerHTML = `
+      <h2>🔄 New Game Request</h2>
+      <p id="new-game-request-message"></p>
+      <div class="request-buttons">
+        <button id="accept-new-game" class="btn-accept">Accept</button>
+        <button id="decline-new-game" class="btn-decline">Decline</button>
+      </div>
+    `;
     document.querySelector('main').appendChild(modal);
   }
 
@@ -148,6 +163,20 @@ class MultiplayerClient {
     // Leave game button
     document.getElementById('leave-game-btn').addEventListener('click', () => {
       this.leaveGame();
+    });
+
+    // New Game button for multiplayer: send new game request
+    document.querySelector('.btn--new').addEventListener('click', () => {
+      if (window.isMultiplayerActive) {
+        this.sendNewGameRequest();
+      }
+    });
+    // Accept/decline new game request
+    document.getElementById('accept-new-game').addEventListener('click', () => {
+      this.acceptNewGameRequest();
+    });
+    document.getElementById('decline-new-game').addEventListener('click', () => {
+      this.declineNewGameRequest();
     });
   }
 
@@ -341,6 +370,25 @@ class MultiplayerClient {
     this.pendingRequestFrom = data.from;
   }
 
+  sendNewGameRequest() {
+    if (this.socket && this.gameId) {
+      this.socket.emit('new_game_request', { gameId: this.gameId });
+    }
+  }
+
+  showNewGameRequestModal(fromName) {
+    const modal = document.querySelector('.new-game-request-modal');
+    const message = document.getElementById('new-game-request-message');
+    message.textContent = `${fromName} wants to start a new game. Accept?`;
+    modal.classList.remove('hidden');
+    document.querySelector('.modal-overlay').classList.remove('hidden');
+  }
+
+  closeNewGameRequestModal() {
+    document.querySelector('.new-game-request-modal').classList.add('hidden');
+    document.querySelector('.modal-overlay').classList.add('hidden');
+  }
+
   acceptGameRequest() {
     if (this.socket && this.pendingRequestFrom) {
       this.socket.emit('accept_game', this.pendingRequestFrom);
@@ -353,6 +401,17 @@ class MultiplayerClient {
       this.socket.emit('decline_game', this.pendingRequestFrom);
       this.closeGameRequestModal();
     }
+  }
+
+  acceptNewGameRequest() {
+    if (this.socket && this.gameId) {
+      this.socket.emit('accept_new_game', { gameId: this.gameId });
+      this.closeNewGameRequestModal();
+    }
+  }
+
+  declineNewGameRequest() {
+    this.closeNewGameRequestModal();
   }
 
   startMultiplayerGame(game) {
@@ -487,14 +546,8 @@ class MultiplayerClient {
     const rollBtn = document.querySelector('.btn--roll');
     const holdBtn = document.querySelector('.btn--hold');
     const finalDice = result.dice;
-    const diceSequence = result.diceSequence;
     const previousPlayer = this.gameState ? this.gameState.currentPlayer : null;
-    if (!diceSequence || !Array.isArray(diceSequence)) {
-      this.gameState = result.game;
-      this.updateGameUI(result.game);
-      return;
-    }
-    let rollCount = 0;
+
     diceEl.classList.remove('hidden');
     diceEl.src = `./img/dice-${finalDice}.png`;
     if (rollBtn && holdBtn) {
@@ -503,24 +556,33 @@ class MultiplayerClient {
       rollBtn.style.opacity = '0.5';
       holdBtn.style.opacity = '0.5';
     }
-    // Use shared animation helper for dice
+
     showDiceAnimation(finalDice, () => {
-      const prevPlayer = previousPlayer;
       this.gameState = result.game;
       this.updateGameUI(result.game);
+      // Detect player switch
+      const prevPlayer = previousPlayer;
       if (prevPlayer && prevPlayer !== result.game.currentPlayer) {
-        // Show next player GIF
-        const idx = result.game.players.indexOf(result.game.currentPlayer);
+        let idx = result.game.players.indexOf(result.game.currentPlayer);
+        console.log('showPlayerSwitchGif idx:', idx, 'currentPlayer:', result.game.currentPlayer, 'players:', result.game.players);
+        if (idx !== 0 && idx !== 1) idx = 0; // fallback to 0 if not found
         showPlayerSwitchGif(idx, () => {
           diceEl.classList.add('hidden');
           const playerIdx = result.game.players.indexOf(prevPlayer);
           if (playerIdx !== -1) {
             document.getElementById(`current--${playerIdx}`).textContent = 0;
           }
+          // Re-enable buttons if it's this player's turn and game is active
+          if (result.game.currentPlayer === this.playerId && result.game.playing) {
+            this.enableGameControls();
+          }
         });
       } else {
         setTimeout(() => {
           diceEl.classList.add('hidden');
+          if (result.game.currentPlayer === this.playerId && result.game.playing) {
+            this.enableGameControls();
+          }
         }, 800);
       }
       if (typeof this.updateButtonState === 'function') {
@@ -532,6 +594,10 @@ class MultiplayerClient {
   handleScoreHeld(result) {
     this.gameState = result.game;
     this.updateGameUI(result.game);
+    // Re-enable buttons if it's this player's turn and game is active
+    if (result.game.currentPlayer === this.playerId && result.game.playing) {
+      this.enableGameControls();
+    }
   }
 
   handleGameEnd(data) {

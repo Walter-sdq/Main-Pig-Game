@@ -1,3 +1,4 @@
 node_modules/
 .env
 g.md
+.vscode
