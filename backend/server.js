@@ -362,6 +362,38 @@ io.on('connection', (socket) => {
     }
   });
 
+  // --- CHAT SYSTEM ---
+  // Lobby and in-game chat
+  socket.on('chat_message', ({ room, message, sender, avatar }) => {
+    // room: 'lobby' or gameId
+    if (!room || !message || !sender) return;
+    // Optionally sanitize message here
+    io.to(room).emit('chat_message', {
+      room,
+      message,
+      sender,
+      avatar: avatar || null,
+      timestamp: Date.now()
+    });
+  });
+
+  // --- FRIEND SYSTEM / PRIVATE GAMES (Stub) ---
+  // socket.on('add_friend', ...);
+  // socket.on('invite_friend', ...);
+
+  // --- LEADERBOARD / GAME HISTORY (Stub) ---
+  // socket.on('request_leaderboard', ...);
+  // socket.on('request_history', ...);
+
+  // --- CUSTOM GAME RULES (Stub) ---
+  // socket.on('create_custom_game', ...);
+
+  // --- EMOJI REACTIONS (Stub) ---
+  // socket.on('emoji_reaction', ...);
+
+  // --- SPECTATOR REACTIONS (Stub) ---
+  // socket.on('spectator_reaction', ...);
+
   // Helper function to handle game end
   function handleGameEnd(gameId, result) {
     const game = gameManager.getGame(gameId);

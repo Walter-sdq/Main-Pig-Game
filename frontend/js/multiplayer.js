@@ -133,6 +133,22 @@ class MultiplayerClient {
     document.querySelector('main').appendChild(button);
   }
 
+  // --- CHAT SYSTEM ---
+  createChatUI() {
+    // Add chat UI to the main page (lobby and in-game)
+    if (document.getElementById('chat-container')) return; // Prevent duplicates
+    const chatContainer = document.createElement('div');
+    chatContainer.id = 'chat-container';
+    chatContainer.innerHTML = `
+      <div id="chat-messages" class="chat-messages"></div>
+      <form id="chat-form" autocomplete="off">
+        <input id="chat-input" type="text" placeholder="Type a message..." maxlength="200" />
+        <button type="submit">Send</button>
+      </form>
+    `;
+    document.querySelector('main').appendChild(chatContainer);
+  }
+
   setupEventListeners() {
     // Multiplayer button
     document.querySelector('.multiplayer-btn').addEventListener('click', () => {
@@ -178,6 +194,27 @@ class MultiplayerClient {
     document.getElementById('decline-new-game').addEventListener('click', () => {
       this.declineNewGameRequest();
     });
+
+    this.createChatUI();
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    if (chatForm && chatInput) {
+      chatForm.addEventListener('submit', e => {
+        e.preventDefault();
+        const msg = chatInput.value.trim();
+        if (msg && this.socket && this.isConnected) {
+          // Send to lobby or game room
+          const room = this.gameId || 'lobby';
+          this.socket.emit('chat_message', {
+            room,
+            message: msg,
+            sender: this.playerName || 'Anonymous',
+            avatar: null // Add avatar support later
+          });
+          chatInput.value = '';
+        }
+      });
+    }
   }
 
   connectToLobby() {
@@ -279,6 +316,10 @@ class MultiplayerClient {
 
     this.socket.on('new_game_request', data => {
       this.showNewGameRequestModal(data.from);
+    });
+
+    this.socket.on('chat_message', data => {
+      this.displayChatMessage(data);
     });
   }
 
@@ -672,6 +713,16 @@ class MultiplayerClient {
     document.querySelector('.game-request-modal').classList.add('hidden');
     document.querySelector('.modal-overlay').classList.add('hidden');
     this.pendingRequestFrom = null;
+  }
+
+  displayChatMessage({ sender, message, avatar, timestamp }) {
+    const chatMessages = document.getElementById('chat-messages');
+    if (!chatMessages) return;
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'chat-message';
+    msgDiv.innerHTML = `<strong>${sender}:</strong> ${message}`;
+    chatMessages.appendChild(msgDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
   }
 }
 
