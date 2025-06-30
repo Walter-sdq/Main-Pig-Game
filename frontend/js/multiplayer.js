@@ -560,27 +560,23 @@ class MultiplayerClient {
     showDiceAnimation(finalDice, () => {
       this.gameState = result.game;
       this.updateGameUI(result.game);
-      // Detect player switch
       const prevPlayer = previousPlayer;
-      if (prevPlayer && prevPlayer !== result.game.currentPlayer) {
-        let idx = result.game.players.indexOf(result.game.currentPlayer);
-        console.log('showPlayerSwitchGif idx:', idx, 'currentPlayer:', result.game.currentPlayer, 'players:', result.game.players);
-        if (idx !== 0 && idx !== 1) idx = 0; // fallback to 0 if not found
-        showPlayerSwitchGif(idx, () => {
+      const newPlayer = result.game.currentPlayer;
+      const prevIdx = result.game.players.indexOf(prevPlayer);
+      const newIdx = result.game.players.indexOf(newPlayer);
+      // Only show switch animation if player switched
+      if (prevPlayer && prevPlayer !== newPlayer && (prevIdx !== -1 && newIdx !== -1)) {
+        showPlayerSwitchGif(newIdx, () => {
           diceEl.classList.add('hidden');
-          const playerIdx = result.game.players.indexOf(prevPlayer);
-          if (playerIdx !== -1) {
-            document.getElementById(`current--${playerIdx}`).textContent = 0;
-          }
-          // Re-enable buttons if it's this player's turn and game is active
-          if (result.game.currentPlayer === this.playerId && result.game.playing) {
+          document.getElementById(`current--${prevIdx}`).textContent = 0;
+          if (newPlayer === this.playerId && result.game.playing) {
             this.enableGameControls();
           }
         });
       } else {
         setTimeout(() => {
           diceEl.classList.add('hidden');
-          if (result.game.currentPlayer === this.playerId && result.game.playing) {
+          if (newPlayer === this.playerId && result.game.playing) {
             this.enableGameControls();
           }
         }, 800);
@@ -594,9 +590,28 @@ class MultiplayerClient {
   handleScoreHeld(result) {
     this.gameState = result.game;
     this.updateGameUI(result.game);
-    // Re-enable buttons if it's this player's turn and game is active
-    if (result.game.currentPlayer === this.playerId && result.game.playing) {
-      this.enableGameControls();
+    const prevPlayer = this.gameState ? this.gameState.currentPlayer : null;
+    const newPlayer = result.game.currentPlayer;
+    const prevIdx = result.game.players.indexOf(prevPlayer);
+    const newIdx = result.game.players.indexOf(newPlayer);
+    // Only show switch animation if player switched
+    if (prevPlayer && prevPlayer !== newPlayer && (prevIdx !== -1 && newIdx !== -1)) {
+      showPlayerSwitchGif(newIdx, () => {
+        const diceEl = document.querySelector('.dice');
+        if (diceEl) diceEl.classList.add('hidden');
+        document.getElementById(`current--${prevIdx}`).textContent = 0;
+        if (newPlayer === this.playerId && result.game.playing) {
+          this.enableGameControls();
+        }
+      });
+    } else {
+      setTimeout(() => {
+        const diceEl = document.querySelector('.dice');
+        if (diceEl) diceEl.classList.add('hidden');
+        if (newPlayer === this.playerId && result.game.playing) {
+          this.enableGameControls();
+        }
+      }, 800);
     }
   }
 
