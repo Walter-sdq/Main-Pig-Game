@@ -224,6 +224,55 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Multiplayer New Game Request
+  socket.on('new_game_request', ({ gameId }) => {
+    try {
+      const game = gameManager.getGame(gameId);
+      const player = playerManager.getPlayer(socket.id);
+      if (!game || !player) return;
+      // Find the other player
+      const otherPlayerId = game.players.find(pid => pid !== player.id);
+      const otherSocketId = playerManager.getSocketId(otherPlayerId);
+      if (otherSocketId) {
+        io.to(otherSocketId).emit('new_game_request', { from: player.name });
+      }
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('accept_new_game', ({ gameId }) => {
+    try {
+      const game = gameManager.getGame(gameId);
+      if (!game) return;
+      // Reset game state for both players
+      const player1 = playerManager.getPlayerById(game.players[0]);
+      const player2 = playerManager.getPlayerById(game.players[1]);
+      if (!player1 || !player2) return;
+      // End current game and create a new one
+      gameManager.endGame(gameId);
+      const newGame = gameManager.createGame(player1, player2);
+      playerManager.updatePlayerStatus(player1.id, 'playing', newGame.id);
+      playerManager.updatePlayerStatus(player2.id, 'playing', newGame.id);
+      // Join new game room
+      const socket1 = playerManager.getSocketId(player1.id);
+      const socket2 = playerManager.getSocketId(player2.id);
+      if (socket1) {
+        io.sockets.sockets.get(socket1)?.join(newGame.id);
+        io.sockets.sockets.get(socket1)?.leave(gameId);
+      }
+      if (socket2) {
+        io.sockets.sockets.get(socket2)?.join(newGame.id);
+        io.sockets.sockets.get(socket2)?.leave(gameId);
+      }
+      // Notify both players
+      io.to(newGame.id).emit('game_started', newGame);
+      io.to('lobby').emit('games_update', gameManager.getAllGames());
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
   // Player leaves game or stops watching
   socket.on('leave_game', () => {
     try {

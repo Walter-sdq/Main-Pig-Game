@@ -276,6 +276,10 @@ class MultiplayerClient {
       this.updateConnectionStatus(false);
       alert('Disconnected from server');
     });
+
+    this.socket.on('new_game_request', data => {
+      this.showNewGameRequestModal(data.from);
+    });
   }
 
   updateConnectionStatus(connected) {
@@ -564,22 +568,23 @@ class MultiplayerClient {
       const newPlayer = result.game.currentPlayer;
       const prevIdx = result.game.players.indexOf(prevPlayer);
       const newIdx = result.game.players.indexOf(newPlayer);
-      // Only show switch animation if player switched
-      if (prevPlayer && prevPlayer !== newPlayer && (prevIdx !== -1 && newIdx !== -1)) {
+      // Only show switch animation if player switched and both indices are valid
+      if (prevPlayer && prevPlayer !== newPlayer && prevIdx !== -1 && newIdx !== -1) {
         showPlayerSwitchGif(newIdx, () => {
-          diceEl.classList.add('hidden');
-          document.getElementById(`current--${prevIdx}`).textContent = 0;
-          if (newPlayer === this.playerId && result.game.playing) {
+          // Do NOT hide the dice here; keep it visible until next roll
+          if (prevIdx !== -1) {
+            document.getElementById(`current--${prevIdx}`).textContent = 0;
+          }
+          // Re-enable buttons if it's this player's turn and game is active
+          if (result.game.currentPlayer === this.playerId && result.game.playing) {
             this.enableGameControls();
           }
         });
       } else {
-        setTimeout(() => {
-          diceEl.classList.add('hidden');
-          if (newPlayer === this.playerId && result.game.playing) {
-            this.enableGameControls();
-          }
-        }, 800);
+        // No switch, just re-enable if needed
+        if (result.game.currentPlayer === this.playerId && result.game.playing) {
+          this.enableGameControls();
+        }
       }
       if (typeof this.updateButtonState === 'function') {
         this.updateButtonState();
@@ -594,24 +599,21 @@ class MultiplayerClient {
     const newPlayer = result.game.currentPlayer;
     const prevIdx = result.game.players.indexOf(prevPlayer);
     const newIdx = result.game.players.indexOf(newPlayer);
-    // Only show switch animation if player switched
-    if (prevPlayer && prevPlayer !== newPlayer && (prevIdx !== -1 && newIdx !== -1)) {
+    // Show switch animation if player switched and both indices are valid
+    if (prevPlayer && prevPlayer !== newPlayer && prevIdx !== -1 && newIdx !== -1) {
       showPlayerSwitchGif(newIdx, () => {
-        const diceEl = document.querySelector('.dice');
-        if (diceEl) diceEl.classList.add('hidden');
-        document.getElementById(`current--${prevIdx}`).textContent = 0;
-        if (newPlayer === this.playerId && result.game.playing) {
+        // Do NOT hide the dice here; keep it visible until next roll
+        if (prevIdx !== -1) {
+          document.getElementById(`current--${prevIdx}`).textContent = 0;
+        }
+        if (result.game.currentPlayer === this.playerId && result.game.playing) {
           this.enableGameControls();
         }
       });
     } else {
-      setTimeout(() => {
-        const diceEl = document.querySelector('.dice');
-        if (diceEl) diceEl.classList.add('hidden');
-        if (newPlayer === this.playerId && result.game.playing) {
-          this.enableGameControls();
-        }
-      }, 800);
+      if (result.game.currentPlayer === this.playerId && result.game.playing) {
+        this.enableGameControls();
+      }
     }
   }
 
