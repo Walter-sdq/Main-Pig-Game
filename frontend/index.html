@@ -1,14 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-    <link rel="stylesheet" href="./css/style.css" />
-    <link rel="stylesheet" href="./css/multiplayer.css" />
-    <title>Pig Game - Multiplayer</title>
-    <link rel="shortcut icon" href="./img/dice-6.png" type="image/x-icon" />
-  </head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+
+  <!-- SEO Meta Tags -->
+  <title>Pig Game - Multiplayer</title>
+  <meta name="description" content="Play the classic Pig Game online! Enjoy single-player or real-time multiplayer dice action with friends. Responsive, animated, and fun.">
+  <meta name="keywords" content="Pig Game, Multiplayer, Dice Game, Online Game, Board Game, JavaScript Game, Play with Friends">
+  <meta name="author" content="Your Name or Team Name">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:title" content="Pig Game - Multiplayer" />
+  <meta property="og:description" content="Play the classic Pig Game online! Enjoy single-player or real-time multiplayer dice action with friends." />
+  <meta property="og:image" content="https://yourdomain.com/img/dice-6.png" />
+  <meta property="og:url" content="https://yourdomain.com/" />
+  <meta property="og:type" content="website" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Pig Game - Multiplayer" />
+  <meta name="twitter:description" content="Play the classic Pig Game online! Enjoy single-player or real-time multiplayer dice action with friends." />
+  <meta name="twitter:image" content="https://yourdomain.com/img/dice-6.png" />
+
+  <!-- Stylesheets -->
+  <link rel="preload" href="./css/style.css" as="style" onload="this.rel='stylesheet'">
+  <link rel="preload" href="./css/multiplayer.css" as="style" onload="this.rel='stylesheet'">
+  <link rel="shortcut icon" href="./img/dice-6.png" type="image/x-icon" />
+</head>
   <body>
     <main>
       <section class="player player--0 player--active">
@@ -85,10 +105,13 @@
         <div class="overlay"></div>
       </div>
     </main>
-    
+
+    <!-- game script -->
+    <!-- <script id="single" src="./js/script.js"></script> -->
+    <script type="module" src="./js/script.js" defer></script>
+    <script type="module" src="./js/multiplayer.js" defer></script>
+
     <!-- Socket.IO Client -->
     <script src="./js/socket.io.min.js"></script>
-    <script src="./js/script.js"></script>
-    <script src="./js/multiplayer.js"></script>
   </body>
 </html>

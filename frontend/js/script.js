@@ -1,3 +1,5 @@
+import { showDiceAnimation, showPlayerSwitchGif } from './uiHelpers.js';
+
 'use strict';
 
 // Selecting elements
@@ -59,102 +61,46 @@ const reloadScreen = () => {
   init();
 };
 
-const holdFunction = () => {
-  if (playing) {
-    // 1. Add current score to active player's score
-    scores[activePlayer] += currentScore;
-    // scores[1] = scores[1] + currentScore
-
-    document.getElementById(`score--${activePlayer}`).textContent =
-      scores[activePlayer];
-
-    // 2. Check if player's score is >= 100
-    if (scores[activePlayer] >= 100) {
-      // Finish the game
-      playing = false;
-      diceEl.classList.add('hidden');
-
-
-
-      document
-        .querySelector(`.player--${activePlayer}`)
-        .classList.add('player--winner');
-      document
-        .querySelector(`.player--${activePlayer}`)
-        .classList.remove('player--active'); 
-        
-        // Show confetti for the winner
-        confettiDisplay(activePlayer);
-     
-    } else {
-      // Switch to the next player
-      switchPlayer();
-    }
+// --- Modified Single Player Logic to Use Helpers and Respect Multiplayer ---
+const rolleDice = () => {
+  if (playing && !window.isMultiplayerActive) {
+    btnRoll.disabled = true;
+    btnRoll.style.cursor = 'not-allowed';
+    showDiceAnimation(Math.trunc(Math.random() * 6) + 1, function() {
+      // 2. Generate the actual dice roll
+      const dice = Math.trunc(Math.random() * 6) + 1;
+      diceEl.src = `./img/dice-${dice}.png`;
+      if (dice !== 1) {
+        currentScore += dice;
+        document.getElementById(`current--${activePlayer}`).textContent = currentScore;
+        btnRoll.disabled = false;
+        btnRoll.style.cursor = 'pointer';
+      } else {
+        showPlayerSwitchGif(activePlayer, function() {
+          switchPlayer();
+          btnRoll.disabled = false;
+          btnRoll.style.cursor = 'pointer';
+        });
+      }
+    });
   }
 };
 
-// const rolleDice = () => {
-//   if (playing) {
-//     // 1. Generating a random dice roll
-//     const dice = Math.trunc(Math.random() * 6) + 1;
-
-//     // 2. Display dice
-//     diceEl.classList.remove('hidden');
-//     diceEl.src = `./img/dice-${dice}.png`;
-
-//     // 3. Check for rolled 1
-//     if (dice !== 1) {
-//       // Add dice to current score
-//       currentScore += dice;
-//       document.getElementById(`current--${activePlayer}`).textContent =
-//         currentScore;
-//     } else {
-//       // Switch to next player
-//       switchPlayer();
-//     }
-//   }
-// };
-
-const rolleDice = () => {
-  if (playing) {
-    // Disable the Roll Dice button during animation
-    btnRoll.disabled = true;
-    btnRoll.style.cursor = 'not-allowed';
-
-    // 1. Simulate dice rolling animation
-    let rollCount = 0;
-    const diceRollInterval = setInterval(() => {
-      const randomDice = Math.trunc(Math.random() * 6) + 1;
-      diceEl.src = `./img/dice-${randomDice}.png`;
-      diceEl.classList.remove('hidden');
-      rollCount++;
-
-      // Stop the animation after a few cycles
-      if (rollCount >= 10) {
-        clearInterval(diceRollInterval);
-
-        // 2. Generate the actual dice roll
-        const dice = Math.trunc(Math.random() * 6) + 1;
-
-        // 3. Display the final dice result
-        diceEl.src = `./img/dice-${dice}.png`;
-
-        // 4. Check for rolled 1
-        if (dice !== 1) {
-          // Add dice to current score
-          currentScore += dice;
-          document.getElementById(`current--${activePlayer}`).textContent =
-            currentScore;
-        } else {
-          // Switch to next player
-          switchPlayer();
-        }
-
-        // Re-enable the Roll Dice button
-        btnRoll.disabled = false;
-        btnRoll.style.cursor = 'pointer';
-      }
-    }, 100); // Change dice image every 100ms
+const holdFunction = () => {
+  if (playing && !window.isMultiplayerActive) {
+    scores[activePlayer] += currentScore;
+    document.getElementById(`score--${activePlayer}`).textContent = scores[activePlayer];
+    if (scores[activePlayer] >= 100) {
+      playing = false;
+      diceEl.classList.add('hidden');
+      document.querySelector(`.player--${activePlayer}`).classList.add('player--winner');
+      document.querySelector(`.player--${activePlayer}`).classList.remove('player--active');
+      confettiDisplay(activePlayer);
+    } else {
+      showPlayerSwitchGif(activePlayer, function() {
+        switchPlayer();
+      });
+    }
   }
 };
 
@@ -282,3 +228,7 @@ document.addEventListener('keydown', e => {
   }
 });
 // KEY EVENTS //
+
+window.isMultiplayerActive = false;
+window.rolleDice = rolleDice;
+window.holdFunction = holdFunction;

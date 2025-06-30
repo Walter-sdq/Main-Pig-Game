@@ -140,6 +140,41 @@ export class GameManager {
 
   generateGameId() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
+ }
+
+  /**
+   * Multiplayer dice roll with animation sequence
+   * Ensures deep copy of game state for frontend sync
+   */
+  rollDiceWithSequence(gameId, playerId, dice, diceSequence) {
+    const game = this.games.get(gameId);
+    if (!game || !game.playing || game.currentPlayer !== playerId) return null;
+
+    game.lastActivity = new Date();
+    let switchPlayer = false;
+    let gameOver = false;
+
+    if (dice === 1) {
+      game.currentScores[playerId] = 0;
+      this.switchPlayer(game);
+      switchPlayer = true;
+    } else {
+      game.currentScores[playerId] += dice;
+    }
+
+    // Only update total scores on hold, not here
+
+    // Deep copy game state for frontend
+    const gameCopy = JSON.parse(JSON.stringify(game));
+
+    return {
+      dice,
+      diceSequence,
+      currentScore: game.currentScores[playerId],
+      switchPlayer,
+      gameOver,
+      game: gameCopy
+    };
   }
 
   // Clean up inactive games (optional - can be called periodically)

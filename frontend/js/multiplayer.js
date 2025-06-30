@@ -1,4 +1,21 @@
-// Multiplayer client for Pig Game
+import { showDiceAnimation, showPlayerSwitchGif } from './uiHelpers.js';
+const player1Conffeti = document.querySelector('.confetti-img1');
+const player2Conffeti = document.querySelector('.confetti-img2');
+
+function confettiDisplay(num) {
+  if (num === 0) {
+    player1Conffeti.classList.remove('hidden');
+  } else {
+    player2Conffeti.classList.remove('hidden');
+  }
+  setTimeout(() => {
+    player1Conffeti.classList.add('hidden');
+    player2Conffeti.classList.add('hidden');
+  }, 3000);
+}
+
+'use strict';
+
 class MultiplayerClient {
   constructor() {
     this.socket = null;
@@ -260,8 +277,13 @@ class MultiplayerClient {
         playerElement.className = 'player-item';
         playerElement.innerHTML = `
           <span>${player.name} (${player.id})</span>
-          <button onclick="multiplayerClient.requestGame('${player.id}')">Challenge</button>
         `;
+        const challengeBtn = document.createElement('button');
+        challengeBtn.textContent = 'Challenge';
+        challengeBtn.addEventListener('click', () => {
+          this.requestGame(player.id);
+        });
+        playerElement.appendChild(challengeBtn);
         playersList.appendChild(playerElement);
       }
     });
@@ -285,10 +307,13 @@ class MultiplayerClient {
           <small>Game ID: ${game.id}</small>
           <small>Watchers: ${game.watchers}</small>
         </div>
-        <button onclick="multiplayerClient.watchGame('${
-          game.id
-        }')">Watch</button>
       `;
+      const watchBtn = document.createElement('button');
+      watchBtn.textContent = 'Watch';
+      watchBtn.addEventListener('click', () => {
+        this.watchGame(game.id);
+      });
+      gameElement.appendChild(watchBtn);
       gamesList.appendChild(gameElement);
     });
   }
@@ -331,10 +356,10 @@ class MultiplayerClient {
   }
 
   startMultiplayerGame(game) {
+    window.isMultiplayerActive = true;
     this.gameState = game;
     this.gameId = game.id;
     this.isSpectating = false;
-
     this.closeMultiplayerModal();
     this.showGamePanel(game);
     this.overrideGameControls();
@@ -357,8 +382,10 @@ class MultiplayerClient {
     const title = document.getElementById('game-title');
     const opponentName = document.getElementById('opponent-name');
     const gameStatus = document.getElementById('game-status');
+    const multiplayerBtn = document.querySelector('.multiplayer-btn');
 
     panel.classList.remove('hidden');
+    if (multiplayerBtn) multiplayerBtn.style.display = 'none';
 
     if (watching) {
       title.textContent = '👁️ Watching Game';
@@ -456,11 +483,50 @@ class MultiplayerClient {
 
   handleDiceRoll(result) {
     const diceEl = document.querySelector('.dice');
-    diceEl.src = `./img/dice-${result.dice}.png`;
+    if (!diceEl) return;
+    const rollBtn = document.querySelector('.btn--roll');
+    const holdBtn = document.querySelector('.btn--hold');
+    const finalDice = result.dice;
+    const diceSequence = result.diceSequence;
+    const previousPlayer = this.gameState ? this.gameState.currentPlayer : null;
+    if (!diceSequence || !Array.isArray(diceSequence)) {
+      this.gameState = result.game;
+      this.updateGameUI(result.game);
+      return;
+    }
+    let rollCount = 0;
     diceEl.classList.remove('hidden');
-
-    this.gameState = result.game;
-    this.updateGameUI(result.game);
+    diceEl.src = `./img/dice-${finalDice}.png`;
+    if (rollBtn && holdBtn) {
+      rollBtn.disabled = true;
+      holdBtn.disabled = true;
+      rollBtn.style.opacity = '0.5';
+      holdBtn.style.opacity = '0.5';
+    }
+    // Use shared animation helper for dice
+    showDiceAnimation(finalDice, () => {
+      const prevPlayer = previousPlayer;
+      this.gameState = result.game;
+      this.updateGameUI(result.game);
+      if (prevPlayer && prevPlayer !== result.game.currentPlayer) {
+        // Show next player GIF
+        const idx = result.game.players.indexOf(result.game.currentPlayer);
+        showPlayerSwitchGif(idx, () => {
+          diceEl.classList.add('hidden');
+          const playerIdx = result.game.players.indexOf(prevPlayer);
+          if (playerIdx !== -1) {
+            document.getElementById(`current--${playerIdx}`).textContent = 0;
+          }
+        });
+      } else {
+        setTimeout(() => {
+          diceEl.classList.add('hidden');
+        }, 800);
+      }
+      if (typeof this.updateButtonState === 'function') {
+        this.updateButtonState();
+      }
+    }, diceEl);
   }
 
   handleScoreHeld(result) {
@@ -469,6 +535,9 @@ class MultiplayerClient {
   }
 
   handleGameEnd(data) {
+    // Show confetti for winner
+    const winnerIdx = this.gameState && this.gameState.players ? this.gameState.players.indexOf(data.winner.id) : 0;
+    confettiDisplay(winnerIdx);
     alert(`🎉 ${data.winner.name} wins the game!`);
     this.returnToLobby();
   }
@@ -481,6 +550,7 @@ class MultiplayerClient {
   }
 
   returnToLobby() {
+    window.isMultiplayerActive = false;
     this.gameState = null;
     this.gameId = null;
     this.isSpectating = false;
@@ -493,6 +563,10 @@ class MultiplayerClient {
     const holdBtn = document.querySelector('.btn--hold');
     rollBtn.onclick = window.rolleDice;
     holdBtn.onclick = window.holdFunction;
+
+    // Show multiplayer button again
+    const multiplayerBtn = document.querySelector('.multiplayer-btn');
+    if (multiplayerBtn) multiplayerBtn.style.display = '';
 
     this.openMultiplayerModal();
   }
