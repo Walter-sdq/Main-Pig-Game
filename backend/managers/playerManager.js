@@ -4,7 +4,7 @@ export class PlayerManager {
     this.playerIds = new Map(); // playerId -> socketId
   }
 
-  addPlayer(socketId, playerId, playerName) {
+  addPlayer(socketId, playerId, playerName, avatar = null) {
     // Generate unique player ID if not provided or already exists
     let finalPlayerId = playerId;
     if (!finalPlayerId || this.playerIds.has(finalPlayerId)) {
@@ -23,7 +23,10 @@ export class PlayerManager {
       socketId,
       status: 'lobby', // lobby, playing, watching
       gameId: null,
-      joinedAt: new Date()
+      joinedAt: new Date(),
+      avatar: avatar || null, // avatar support
+      wins: 0, // leaderboard support
+      losses: 0
     };
 
     this.players.set(socketId, player);
@@ -68,6 +71,24 @@ export class PlayerManager {
       this.playerIds.delete(player.id);
       this.players.delete(socketId);
     }
+  }
+
+  incrementWins(playerId) {
+    const player = this.getPlayerById(playerId);
+    if (player) player.wins = (player.wins || 0) + 1;
+  }
+
+  incrementLosses(playerId) {
+    const player = this.getPlayerById(playerId);
+    if (player) player.losses = (player.losses || 0) + 1;
+  }
+
+  getLeaderboard(limit = 10) {
+    return Array.from(this.players.values())
+      .filter(p => p.wins > 0 || p.losses > 0)
+      .sort((a, b) => b.wins - a.wins || a.losses - b.losses)
+      .slice(0, limit)
+      .map(({ id, name, avatar, wins, losses }) => ({ id, name, avatar, wins, losses }));
   }
 
   generateUniquePlayerId() {

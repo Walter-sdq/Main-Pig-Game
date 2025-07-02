@@ -12,6 +12,10 @@ export class GameManager {
         [player1.id]: player1.name,
         [player2.id]: player2.name
       },
+      playerAvatars: {
+        [player1.id]: player1.avatar || null,
+        [player2.id]: player2.avatar || null
+      },
       scores: {
         [player1.id]: 0,
         [player2.id]: 0

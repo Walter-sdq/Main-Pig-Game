@@ -1,21 +1,6 @@
-import { showDiceAnimation, showPlayerSwitchGif } from './uiHelpers.js';
-const player1Conffeti = document.querySelector('.confetti-img1');
-const player2Conffeti = document.querySelector('.confetti-img2');
+import { playSound, playMusic, pauseMusic, toggleMute, isMuted, setPlayMode } from './soundManager.js';
 
-function confettiDisplay(num) {
-  if (num === 0) {
-    player1Conffeti.classList.remove('hidden');
-  } else {
-    player2Conffeti.classList.remove('hidden');
-  }
-  setTimeout(() => {
-    player1Conffeti.classList.add('hidden');
-    player2Conffeti.classList.add('hidden');
-  }, 3000);
-}
-
-'use strict';
-
+// Multiplayer client for Pig Game
 class MultiplayerClient {
   constructor() {
     this.socket = null;
@@ -31,12 +16,13 @@ class MultiplayerClient {
   }
 
   initializeUI() {
+    setPlayMode('multiplayer');
     this.createMultiplayerModal();
     this.createGameRequestModal();
     this.createGamePanel();
-    this.createNewGameRequestModal();
     this.addMultiplayerButton();
     this.setupEventListeners();
+    this.addSoundToggleButton();
   }
 
   createMultiplayerModal() {
@@ -52,6 +38,16 @@ class MultiplayerClient {
       <div class="player-setup">
         <input type="text" id="player-name" placeholder="Enter your name" maxlength="20">
         <input type="text" id="player-id" placeholder="Custom ID (optional)" maxlength="4">
+        <div class="avatar-picker" style="display: flex; gap: 1rem; margin: 1rem 0; justify-content: center;">
+          <label>Select Avatar:</label>
+          <span class="avatar-option" data-avatar="🐷" style="font-size:2.5rem;cursor:pointer;">🐷</span>
+          <span class="avatar-option" data-avatar="🐸" style="font-size:2.5rem;cursor:pointer;">🐸</span>
+          <span class="avatar-option" data-avatar="🦊" style="font-size:2.5rem;cursor:pointer;">🦊</span>
+          <span class="avatar-option" data-avatar="🐼" style="font-size:2.5rem;cursor:pointer;">🐼</span>
+          <span class="avatar-option" data-avatar="🦁" style="font-size:2.5rem;cursor:pointer;">🦁</span>
+          <span class="avatar-option" data-avatar="👾" style="font-size:2.5rem;cursor:pointer;">👾</span>
+        </div>
+        <input type="hidden" id="player-avatar" value="🐷">
         <button id="connect-btn">Connect to Lobby</button>
       </div>
       <div class="lobby-content hidden">
@@ -66,9 +62,12 @@ class MultiplayerClient {
           <h3>Active Games (Click to Watch)</h3>
           <div id="games-list">No active games</div>
         </div>
+        <div class="leaderboard-section">
+          <h3>🏆 Leaderboard</h3>
+          <div id="leaderboard-list">Loading...</div>
+        </div>
       </div>
     `;
-
     document.querySelector('main').appendChild(modal);
   }
 
@@ -84,20 +83,6 @@ class MultiplayerClient {
       </div>
     `;
 
-    document.querySelector('main').appendChild(modal);
-  }
-
-  createNewGameRequestModal() {
-    const modal = document.createElement('div');
-    modal.className = 'modal new-game-request-modal hidden';
-    modal.innerHTML = `
-      <h2>🔄 New Game Request</h2>
-      <p id="new-game-request-message"></p>
-      <div class="request-buttons">
-        <button id="accept-new-game" class="btn-accept">Accept</button>
-        <button id="decline-new-game" class="btn-decline">Decline</button>
-      </div>
-    `;
     document.querySelector('main').appendChild(modal);
   }
 
@@ -133,20 +118,18 @@ class MultiplayerClient {
     document.querySelector('main').appendChild(button);
   }
 
-  // --- CHAT SYSTEM ---
-  createChatUI() {
-    // Add chat UI to the main page (lobby and in-game)
-    if (document.getElementById('chat-container')) return; // Prevent duplicates
-    const chatContainer = document.createElement('div');
-    chatContainer.id = 'chat-container';
-    chatContainer.innerHTML = `
-      <div id="chat-messages" class="chat-messages"></div>
-      <form id="chat-form" autocomplete="off">
-        <input id="chat-input" type="text" placeholder="Type a message..." maxlength="200" />
-        <button type="submit">Send</button>
-      </form>
-    `;
-    document.querySelector('main').appendChild(chatContainer);
+  addSoundToggleButton() {
+    const modal = document.querySelector('.multiplayer-modal');
+    if (!modal || modal.querySelector('.sound-toggle-btn')) return;
+    const btn = document.createElement('button');
+    btn.className = 'sound-toggle-btn';
+    btn.innerHTML = isMuted() ? '🔇 Music Off' : '🎵 Music On';
+    btn.style.cssText = 'position:absolute;top:1.2rem;right:2.5rem;font-size:1.3rem;padding:0.4rem 1.2rem;border-radius:0.5rem;background:#f3f4f6;border:none;cursor:pointer;z-index:1200;';
+    btn.onclick = () => {
+      const muted = toggleMute();
+      btn.innerHTML = muted ? '🔇 Music Off' : '🎵 Music On';
+    };
+    modal.appendChild(btn);
   }
 
   setupEventListeners() {
@@ -180,80 +163,35 @@ class MultiplayerClient {
     document.getElementById('leave-game-btn').addEventListener('click', () => {
       this.leaveGame();
     });
-
-    // New Game button for multiplayer: send new game request
-    document.querySelector('.btn--new').addEventListener('click', () => {
-      if (window.isMultiplayerActive) {
-        this.sendNewGameRequest();
-      }
-    });
-    // Accept/decline new game request
-    document.getElementById('accept-new-game').addEventListener('click', () => {
-      this.acceptNewGameRequest();
-    });
-    document.getElementById('decline-new-game').addEventListener('click', () => {
-      this.declineNewGameRequest();
-    });
-
-    this.createChatUI();
-    const chatForm = document.getElementById('chat-form');
-    const chatInput = document.getElementById('chat-input');
-    if (chatForm && chatInput) {
-      chatForm.addEventListener('submit', e => {
-        e.preventDefault();
-        const msg = chatInput.value.trim();
-        if (msg && this.socket && this.isConnected) {
-          // Send to lobby or game room
-          const room = this.gameId || 'lobby';
-          this.socket.emit('chat_message', {
-            room,
-            message: msg,
-            sender: this.playerName || 'Anonymous',
-            avatar: null // Add avatar support later
-          });
-          chatInput.value = '';
-        }
-      });
-    }
   }
 
   connectToLobby() {
     const playerName = document.getElementById('player-name').value.trim();
-    const playerId = document
-      .getElementById('player-id')
-      .value.trim()
-      .toUpperCase();
-
+    const playerId = document.getElementById('player-id').value.trim().toUpperCase();
+    const avatar = document.getElementById('player-avatar').value;
     if (!playerName) {
       alert('Please enter your name');
       return;
     }
-
-    // Connect to server
     this.socket = io(window.location.origin);
-    // const socket = io('http://localhost:3001');
-
     this.socket.on('connect', () => {
-      console.log('Connected to server');
       this.isConnected = true;
       this.updateConnectionStatus(true);
-
-      // Join lobby
       this.socket.emit('join_lobby', {
         playerName: playerName,
         playerId: playerId || null,
+        avatar: avatar || null
       });
     });
 
     this.socket.on('join_success', player => {
       this.playerId = player.id;
       this.playerName = player.name;
-
-      document.getElementById(
-        'current-player-info'
-      ).textContent = `${player.name} (${player.id})`;
+      document.getElementById('current-player-info').textContent = `${player.name} (${player.id})`;
       document.querySelector('.player-setup').classList.add('hidden');
       document.querySelector('.lobby-content').classList.remove('hidden');
+      this.fetchLeaderboard();
+      playMusic('multiplayer');
     });
 
     this.socket.on('players_update', players => {
@@ -280,7 +218,7 @@ class MultiplayerClient {
       this.startWatchingGame(game);
     });
 
-    this.socket.on('dice_rolled', result => {
+    this.socket.on('dice_rolled', (result) => {
       this.handleDiceRoll(result);
     });
 
@@ -290,6 +228,7 @@ class MultiplayerClient {
 
     this.socket.on('game_ended', data => {
       this.handleGameEnd(data);
+      this.fetchLeaderboard();
     });
 
     this.socket.on('player_left', data => {
@@ -314,12 +253,9 @@ class MultiplayerClient {
       alert('Disconnected from server');
     });
 
-    this.socket.on('new_game_request', data => {
-      this.showNewGameRequestModal(data.from);
-    });
-
-    this.socket.on('chat_message', data => {
-      this.displayChatMessage(data);
+    // Emoji reaction handling
+    this.socket.on('emoji_reaction', data => {
+      this.displayEmojiReaction(data);
     });
   }
 
@@ -338,18 +274,17 @@ class MultiplayerClient {
 
   updatePlayersList(players) {
     const playersList = document.getElementById('players-list');
-
     if (players.length === 0) {
       playersList.innerHTML = 'No other players online';
       return;
     }
-
     playersList.innerHTML = '';
     players.forEach(player => {
       if (player.id !== this.playerId) {
         const playerElement = document.createElement('div');
         playerElement.className = 'player-item';
         playerElement.innerHTML = `
+          <span class="player-avatar">${player.avatar || '👤'}</span>
           <span>${player.name} (${player.id})</span>
         `;
         const challengeBtn = document.createElement('button');
@@ -381,15 +316,30 @@ class MultiplayerClient {
           <small>Game ID: ${game.id}</small>
           <small>Watchers: ${game.watchers}</small>
         </div>
+        <button onclick="multiplayerClient.watchGame('${
+          game.id
+        }')">Watch</button>
       `;
-      const watchBtn = document.createElement('button');
-      watchBtn.textContent = 'Watch';
-      watchBtn.addEventListener('click', () => {
-        this.watchGame(game.id);
-      });
-      gameElement.appendChild(watchBtn);
       gamesList.appendChild(gameElement);
     });
+  }
+
+  // Fetch and display leaderboard
+  fetchLeaderboard() {
+    fetch('/api/leaderboard')
+      .then(res => res.json())
+      .then(data => {
+        const leaderboard = document.getElementById('leaderboard-list');
+        if (!leaderboard) return;
+        if (!data.length) {
+          leaderboard.innerHTML = '<em>No games played yet.</em>';
+          return;
+        }
+        leaderboard.innerHTML = `<table class="leaderboard-table" style="width:100%;text-align:left;">
+          <tr><th>#</th><th>Avatar</th><th>Name</th><th>Wins</th><th>Losses</th></tr>
+          ${data.map((p, i) => `<tr><td>${i+1}</td><td style='font-size:1.7rem;'>${p.avatar||'👤'}</td><td>${p.name}</td><td>${p.wins}</td><td>${p.losses}</td></tr>`).join('')}
+        </table>`;
+      });
   }
 
   requestGame(targetPlayerId) {
@@ -415,25 +365,6 @@ class MultiplayerClient {
     this.pendingRequestFrom = data.from;
   }
 
-  sendNewGameRequest() {
-    if (this.socket && this.gameId) {
-      this.socket.emit('new_game_request', { gameId: this.gameId });
-    }
-  }
-
-  showNewGameRequestModal(fromName) {
-    const modal = document.querySelector('.new-game-request-modal');
-    const message = document.getElementById('new-game-request-message');
-    message.textContent = `${fromName} wants to start a new game. Accept?`;
-    modal.classList.remove('hidden');
-    document.querySelector('.modal-overlay').classList.remove('hidden');
-  }
-
-  closeNewGameRequestModal() {
-    document.querySelector('.new-game-request-modal').classList.add('hidden');
-    document.querySelector('.modal-overlay').classList.add('hidden');
-  }
-
   acceptGameRequest() {
     if (this.socket && this.pendingRequestFrom) {
       this.socket.emit('accept_game', this.pendingRequestFrom);
@@ -448,22 +379,11 @@ class MultiplayerClient {
     }
   }
 
-  acceptNewGameRequest() {
-    if (this.socket && this.gameId) {
-      this.socket.emit('accept_new_game', { gameId: this.gameId });
-      this.closeNewGameRequestModal();
-    }
-  }
-
-  declineNewGameRequest() {
-    this.closeNewGameRequestModal();
-  }
-
   startMultiplayerGame(game) {
-    window.isMultiplayerActive = true;
     this.gameState = game;
     this.gameId = game.id;
     this.isSpectating = false;
+
     this.closeMultiplayerModal();
     this.showGamePanel(game);
     this.overrideGameControls();
@@ -486,10 +406,8 @@ class MultiplayerClient {
     const title = document.getElementById('game-title');
     const opponentName = document.getElementById('opponent-name');
     const gameStatus = document.getElementById('game-status');
-    const multiplayerBtn = document.querySelector('.multiplayer-btn');
 
     panel.classList.remove('hidden');
-    if (multiplayerBtn) multiplayerBtn.style.display = 'none';
 
     if (watching) {
       title.textContent = '👁️ Watching Game';
@@ -540,15 +458,10 @@ class MultiplayerClient {
     const rollBtn = document.querySelector('.btn--roll');
     const holdBtn = document.querySelector('.btn--hold');
 
+    // When player clicks "Roll" in multiplayer mode:
     rollBtn.onclick = () => {
-      if (
-        this.gameState &&
-        this.gameState.currentPlayer === this.playerId &&
-        this.gameState.playing
-      ) {
-        this.socket.emit('roll_dice', this.gameId);
-      } else {
-        alert("It's not your turn!");
+      if (this.isMultiplayer && this.isMyTurn()) {
+        this.socket.emit('roll_dice', { gameId: this.gameId, playerId: this.playerId });
       }
     };
 
@@ -585,100 +498,51 @@ class MultiplayerClient {
     holdBtn.style.opacity = '1';
   }
 
+  // Handle dice roll animation using only server data
   handleDiceRoll(result) {
+    playSound('dice', 'multiplayer');
     const diceEl = document.querySelector('.dice');
-    if (!diceEl) return;
     const rollBtn = document.querySelector('.btn--roll');
     const holdBtn = document.querySelector('.btn--hold');
     const finalDice = result.dice;
-    const previousPlayer = this.gameState ? this.gameState.currentPlayer : null;
+    const diceSequence = result.diceSequence;
 
+    // Animate dice using server-provided sequence
+    let rollCount = 0;
     diceEl.classList.remove('hidden');
-    diceEl.src = `./img/dice-${finalDice}.png`;
-    if (rollBtn && holdBtn) {
-      rollBtn.disabled = true;
-      holdBtn.disabled = true;
-      rollBtn.style.opacity = '0.5';
-      holdBtn.style.opacity = '0.5';
-    }
+    rollBtn.disabled = true;
+    holdBtn.disabled = true;
+    rollBtn.style.opacity = '0.5';
+    holdBtn.style.opacity = '0.5';
 
-    showDiceAnimation(finalDice, () => {
-      this.gameState = result.game;
-      this.updateGameUI(result.game);
-      const prevPlayer = previousPlayer;
-      const newPlayer = result.game.currentPlayer;
-      const prevIdx = result.game.players.indexOf(prevPlayer);
-      const newIdx = result.game.players.indexOf(newPlayer);
-      // Only show switch animation if player switched and both indices are valid
-      if (prevPlayer && prevPlayer !== newPlayer && prevIdx !== -1 && newIdx !== -1) {
-        showPlayerSwitchGif(newIdx, () => {
-          // Do NOT hide the dice here; keep it visible until next roll
-          if (prevIdx !== -1) {
-            document.getElementById(`current--${prevIdx}`).textContent = 0;
-          }
-          // Re-enable buttons if it's this player's turn and game is active
-          if (result.game.currentPlayer === this.playerId && result.game.playing) {
-            this.enableGameControls();
-          }
-        });
-      } else {
-        // No switch, just re-enable if needed
-        if (result.game.currentPlayer === this.playerId && result.game.playing) {
-          this.enableGameControls();
-        }
+    const diceRollInterval = setInterval(() => {
+      diceEl.src = `./img/dice-${diceSequence[rollCount]}.png`;
+      rollCount++;
+      if (rollCount >= diceSequence.length) {
+        clearInterval(diceRollInterval);
+        diceEl.src = `./img/dice-${finalDice}.png`;
+        setTimeout(() => {
+          this.gameState = result.game;
+          this.updateGameUI(result.game);
+          this.updateButtonState();
+        }, 300);
       }
-      if (typeof this.updateButtonState === 'function') {
-        this.updateButtonState();
-      }
-    }, diceEl);
+    }, 80);
   }
 
   handleScoreHeld(result) {
-    const diceEl = document.querySelector('.dice');
-    const prevPlayer = this.gameState ? this.gameState.currentPlayer : null;
+    playSound('hold', 'multiplayer');
+    const previousPlayer = this.gameState?.currentPlayer;
+    if (previousPlayer && previousPlayer !== result.game.currentPlayer) {
+      this.animateTurnSwitch(result, previousPlayer);
+    }
     this.gameState = result.game;
     this.updateGameUI(result.game);
-
-    // Detect player switch
-    const newPlayer = result.game.currentPlayer;
-    const prevIdx = result.game.players.indexOf(prevPlayer);
-    const newIdx = result.game.players.indexOf(newPlayer);
-
-    if (prevPlayer && prevPlayer !== newPlayer && prevIdx !== -1 && newIdx !== -1) {
-      showPlayerSwitchGif(newIdx, () => {
-        // Optionally clear the previous player's current score
-        if (prevIdx !== -1) {
-          document.getElementById(`current--${prevIdx}`).textContent = 0;
-        }
-        // Re-enable controls if it's this player's turn
-        if (result.game.currentPlayer === this.playerId && result.game.playing) {
-          this.enableGameControls();
-        }
-      });
-    } else {
-      if (result.game.currentPlayer === this.playerId && result.game.playing) {
-        this.enableGameControls();
-      }
-    }
+    this.updateButtonState();
   }
 
   handleGameEnd(data) {
-    // Show confetti for winner
-    const winnerIdx = this.gameState && this.gameState.players ? this.gameState.players.indexOf(data.winner.id) : 0;
-    confettiDisplay(winnerIdx);
-    alert(`🎉 ${data.winner.name} wins the game!`);
-    this.returnToLobby();
-  }
-
-  leaveGame() {
-    if (this.socket) {
-      this.socket.emit('leave_game');
-    }
-    this.returnToLobby();
-  }
-
-  returnToLobby() {
-    window.isMultiplayerActive = false;
+    playSound('win', 'multiplayer');
     this.gameState = null;
     this.gameId = null;
     this.isSpectating = false;
@@ -692,9 +556,77 @@ class MultiplayerClient {
     rollBtn.onclick = window.rolleDice;
     holdBtn.onclick = window.holdFunction;
 
-    // Show multiplayer button again
-    const multiplayerBtn = document.querySelector('.multiplayer-btn');
-    if (multiplayerBtn) multiplayerBtn.style.display = '';
+    this.openMultiplayerModal();
+  }
+
+  updateButtonState() {
+    const rollBtn = document.querySelector('.btn--roll');
+    const holdBtn = document.querySelector('.btn--hold');
+    if (
+      this.gameState &&
+      this.gameState.currentPlayer === this.playerId &&
+      this.gameState.playing &&
+      !this.isSpectating
+    ) {
+      rollBtn.disabled = false;
+      holdBtn.disabled = false;
+      rollBtn.style.opacity = '1';
+      holdBtn.style.opacity = '1';
+    } else {
+      rollBtn.disabled = true;
+      holdBtn.disabled = true;
+      rollBtn.style.opacity = '0.5';
+      holdBtn.style.opacity = '0.5';
+    }
+  }
+
+  animateTurnSwitch(result, previousPlayer) {
+    const game = result.game;
+    const player1Id = game.players[0];
+    const player2Id = game.players[1];
+
+    // Direction is always the same for both players
+    const isMovingRight = previousPlayer === player1Id && game.currentPlayer === player2Id;
+    const isMovingLeft = previousPlayer === player2Id && game.currentPlayer === player1Id;
+
+    // Map to local UI: player1 sees .nextGif2 as right, player2 sees .nextGif as right
+    const isPlayer1 = this.playerId === player1Id;
+    let showGif;
+    if (isMovingRight) {
+      showGif = isPlayer1 ? '.nextGif2' : '.nextGif';
+    } else if (isMovingLeft) {
+      showGif = isPlayer1 ? '.nextGif' : '.nextGif2';
+    } else {
+      return;
+    }
+
+    document.querySelector('.nextGif').classList.add('hidden');
+    document.querySelector('.nextGif2').classList.add('hidden');
+    document.querySelector(showGif).classList.remove('hidden');
+    setTimeout(() => {
+      document.querySelector(showGif).classList.add('hidden');
+    }, 1200);
+  }
+  leaveGame() {
+    if (this.socket) {
+      this.socket.emit('leave_game');
+    }
+    this.returnToLobby();
+  }
+
+  returnToLobby() {
+    this.gameState = null;
+    this.gameId = null;
+    this.isSpectating = false;
+
+    document.querySelector('.game-panel').classList.add('hidden');
+    this.enableGameControls();
+
+    // Reset original game controls
+    const rollBtn = document.querySelector('.btn--roll');
+    const holdBtn = document.querySelector('.btn--hold');
+    rollBtn.onclick = window.rolleDice;
+    holdBtn.onclick = window.holdFunction;
 
     this.openMultiplayerModal();
   }
@@ -715,14 +647,93 @@ class MultiplayerClient {
     this.pendingRequestFrom = null;
   }
 
-  displayChatMessage({ sender, message, avatar, timestamp }) {
-    const chatMessages = document.getElementById('chat-messages');
-    if (!chatMessages) return;
-    const msgDiv = document.createElement('div');
-    msgDiv.className = 'chat-message';
-    msgDiv.innerHTML = `<strong>${sender}:</strong> ${message}`;
-    chatMessages.appendChild(msgDiv);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+  // Add after chat system setup in MultiplayerClient
+  setupEmojiPicker() {
+    // Add emoji picker button to chat UI
+    const chatForm = document.getElementById('chat-form');
+    if (!chatForm) return;
+    const emojiBtn = document.createElement('button');
+    emojiBtn.type = 'button';
+    emojiBtn.id = 'emoji-btn';
+    emojiBtn.innerText = '😊';
+    emojiBtn.title = 'Send Emoji Reaction';
+    emojiBtn.style.marginRight = '0.5rem';
+    chatForm.insertBefore(emojiBtn, chatForm.firstChild);
+
+    // Emoji list
+    const emojis = ['🎉','😂','😮','👏','😎','🔥','😡','😱','👍','👎','🐷','💯'];
+    let picker;
+    emojiBtn.onclick = (e) => {
+      e.preventDefault();
+      if (picker) {
+        picker.remove(); picker = null; return;
+      }
+      picker = document.createElement('div');
+      picker.className = 'emoji-picker';
+      picker.style.position = 'absolute';
+      picker.style.bottom = '3.5rem';
+      picker.style.left = '0';
+      picker.style.background = '#fff';
+      picker.style.border = '1px solid #eee';
+      picker.style.borderRadius = '0.5rem';
+      picker.style.boxShadow = '0 0.5rem 1.5rem rgba(0,0,0,0.07)';
+      picker.style.padding = '0.5rem 0.7rem';
+      picker.style.zIndex = '2000';
+      picker.innerHTML = emojis.map(e=>`<span style='font-size:2rem;cursor:pointer;margin:0 0.3rem;'>${e}</span>`).join('');
+      chatForm.appendChild(picker);
+      picker.onclick = (ev) => {
+        if (ev.target.tagName === 'SPAN') {
+          this.sendEmojiReaction(ev.target.textContent);
+          picker.remove(); picker = null;
+        }
+      };
+    };
+    document.addEventListener('click', (e) => {
+      if (picker && !chatForm.contains(e.target)) { picker.remove(); picker = null; }
+    });
+  }
+
+  sendEmojiReaction(emoji) {
+    if (this.socket && this.gameId) {
+      this.socket.emit('emoji_reaction', {
+        gameId: this.gameId,
+        playerId: this.playerId,
+        emoji
+      });
+    }
+  }
+
+  // Call setupEmojiPicker after chat UI is created
+  createChatUI() {
+    // ...existing code for chat UI...
+    this.setupEmojiPicker();
+  }
+
+  displayEmojiReaction({ playerId, emoji }) {
+    // Show in chat
+    const chatMessages = document.querySelector('.chat-messages');
+    if (chatMessages) {
+      const msg = document.createElement('div');
+      msg.className = 'chat-message';
+      msg.innerHTML = `<span style='font-size:1.7rem;'>${emoji}</span> <small style='color:#888;'>${playerId}</small>`;
+      chatMessages.appendChild(msg);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    // Floating overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'emoji-float';
+    overlay.textContent = emoji;
+    overlay.style.position = 'fixed';
+    overlay.style.left = (window.innerWidth/2-30+Math.random()*60)+'px';
+    overlay.style.top = (window.innerHeight/2-60+Math.random()*40)+'px';
+    overlay.style.fontSize = '3rem';
+    overlay.style.opacity = '1';
+    overlay.style.transition = 'all 1.2s cubic-bezier(.4,2,.6,1)';
+    overlay.style.pointerEvents = 'none';
+    overlay.style.zIndex = '3000';
+    document.body.appendChild(overlay);
+    setTimeout(()=>{ overlay.style.transform='translateY(-80px) scale(1.5)'; overlay.style.opacity='0'; }, 100);
+    setTimeout(()=>{ overlay.remove(); }, 1300);
   }
 }
 

@@ -43,6 +43,11 @@ app.get('/api/players', (req, res) => {
   res.json(playerManager.getLobbyPlayers());
 });
 
+// REST API for leaderboard
+app.get('/api/leaderboard', (req, res) => {
+  res.json(playerManager.getLeaderboard(10));
+});
+
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   console.log(`\nPlayer connected: ${socket.id}`);
@@ -50,7 +55,7 @@ io.on('connection', (socket) => {
   // Player joins lobby
   socket.on('join_lobby', (playerData) => {
     try {
-      const player = playerManager.addPlayer(socket.id, playerData.playerId, playerData.playerName);
+      const player = playerManager.addPlayer(socket.id, playerData.playerId, playerData.playerName, playerData.avatar);
       socket.playerId = player.id;
       socket.join('lobby');
       
@@ -173,29 +178,26 @@ io.on('connection', (socket) => {
   });
 
   // Game actions - Roll dice
-  socket.on('roll_dice', (gameId) => {
-    try {
-      const game = gameManager.getGame(gameId);
-      const player = playerManager.getPlayer(socket.id);
-      
-      if (!game || !player) return;
-      
-      if (game.currentPlayer !== player.id || !game.playing) {
-        socket.emit('error', 'Not your turn or game not active');
-        return;
-      }
+  socket.on('roll_dice', ({ gameId, playerId }) => {
+    const game = gameManager.getGame(gameId);
+    if (!game) return;
 
-      const result = gameManager.rollDice(gameId);
-      if (result) {
-        io.to(gameId).emit('dice_rolled', result);
-        
-        if (result.gameOver) {
-          handleGameEnd(gameId, result);
-        }
-      }
-    } catch (error) {
-      socket.emit('error', error.message);
-    }
+    // Only allow if it's the player's turn
+    if (game.currentPlayer !== playerId) return;
+
+    // Generate dice animation sequence and final dice value
+    const diceSequence = Array.from({ length: 10 }, () => Math.floor(Math.random() * 6) + 1);
+    const dice = Math.floor(Math.random() * 6) + 1;
+
+    // Update game state with the dice roll
+    gameManager.rollDice(gameId, playerId, dice, diceSequence);
+
+    // *** EMIT TO THE WHOLE GAME ROOM, NOT JUST THE ROLLER ***
+    io.to(gameId).emit('dice_rolled', {
+      dice,
+      diceSequence,
+      game: gameManager.getGame(gameId)
+    });
   });
 
   // Game actions - Hold score
@@ -219,55 +221,6 @@ io.on('connection', (socket) => {
           handleGameEnd(gameId, result);
         }
       }
-    } catch (error) {
-      socket.emit('error', error.message);
-    }
-  });
-
-  // Multiplayer New Game Request
-  socket.on('new_game_request', ({ gameId }) => {
-    try {
-      const game = gameManager.getGame(gameId);
-      const player = playerManager.getPlayer(socket.id);
-      if (!game || !player) return;
-      // Find the other player
-      const otherPlayerId = game.players.find(pid => pid !== player.id);
-      const otherSocketId = playerManager.getSocketId(otherPlayerId);
-      if (otherSocketId) {
-        io.to(otherSocketId).emit('new_game_request', { from: player.name });
-      }
-    } catch (error) {
-      socket.emit('error', error.message);
-    }
-  });
-
-  socket.on('accept_new_game', ({ gameId }) => {
-    try {
-      const game = gameManager.getGame(gameId);
-      if (!game) return;
-      // Reset game state for both players
-      const player1 = playerManager.getPlayerById(game.players[0]);
-      const player2 = playerManager.getPlayerById(game.players[1]);
-      if (!player1 || !player2) return;
-      // End current game and create a new one
-      gameManager.endGame(gameId);
-      const newGame = gameManager.createGame(player1, player2);
-      playerManager.updatePlayerStatus(player1.id, 'playing', newGame.id);
-      playerManager.updatePlayerStatus(player2.id, 'playing', newGame.id);
-      // Join new game room
-      const socket1 = playerManager.getSocketId(player1.id);
-      const socket2 = playerManager.getSocketId(player2.id);
-      if (socket1) {
-        io.sockets.sockets.get(socket1)?.join(newGame.id);
-        io.sockets.sockets.get(socket1)?.leave(gameId);
-      }
-      if (socket2) {
-        io.sockets.sockets.get(socket2)?.join(newGame.id);
-        io.sockets.sockets.get(socket2)?.leave(gameId);
-      }
-      // Notify both players
-      io.to(newGame.id).emit('game_started', newGame);
-      io.to('lobby').emit('games_update', gameManager.getAllGames());
     } catch (error) {
       socket.emit('error', error.message);
     }
@@ -319,6 +272,18 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Emoji reaction event
+  socket.on('emoji_reaction', ({ gameId, playerId, emoji }) => {
+    const game = gameManager.getGame(gameId);
+    if (!game) return;
+    // Broadcast to all in the game room
+    io.to(gameId).emit('emoji_reaction', {
+      playerId,
+      emoji,
+      timestamp: Date.now()
+    });
+  });
+
   // Handle disconnect
   socket.on('disconnect', () => {
     try {
@@ -362,42 +327,19 @@ io.on('connection', (socket) => {
     }
   });
 
-  // --- CHAT SYSTEM ---
-  // Lobby and in-game chat
-  socket.on('chat_message', ({ room, message, sender, avatar }) => {
-    // room: 'lobby' or gameId
-    if (!room || !message || !sender) return;
-    // Optionally sanitize message here
-    io.to(room).emit('chat_message', {
-      room,
-      message,
-      sender,
-      avatar: avatar || null,
-      timestamp: Date.now()
-    });
-  });
-
-  // --- FRIEND SYSTEM / PRIVATE GAMES (Stub) ---
-  // socket.on('add_friend', ...);
-  // socket.on('invite_friend', ...);
-
-  // --- LEADERBOARD / GAME HISTORY (Stub) ---
-  // socket.on('request_leaderboard', ...);
-  // socket.on('request_history', ...);
-
-  // --- CUSTOM GAME RULES (Stub) ---
-  // socket.on('create_custom_game', ...);
-
-  // --- EMOJI REACTIONS (Stub) ---
-  // socket.on('emoji_reaction', ...);
-
-  // --- SPECTATOR REACTIONS (Stub) ---
-  // socket.on('spectator_reaction', ...);
-
   // Helper function to handle game end
   function handleGameEnd(gameId, result) {
     const game = gameManager.getGame(gameId);
     if (!game) return;
+
+    // Update player stats for leaderboard
+    if (result && result.winner && result.winner.id) {
+      playerManager.incrementWins(result.winner.id);
+      // Mark all other players as losers
+      game.players.forEach(pid => {
+        if (pid !== result.winner.id) playerManager.incrementLosses(pid);
+      });
+    }
 
     io.to(gameId).emit('game_ended', result);
     

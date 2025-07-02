@@ -1,4 +1,5 @@
 import { showDiceAnimation, showPlayerSwitchGif } from './uiHelpers.js';
+import { playSound, playMusic, pauseMusic, toggleMute, isMuted, setPlayMode } from './soundManager.js';
 
 'use strict';
 
@@ -62,10 +63,12 @@ const reloadScreen = () => {
 };
 
 // --- Modified Single Player Logic to Use Helpers and Respect Multiplayer ---
+setPlayMode('single');
 const rolleDice = () => {
   if (playing && !window.isMultiplayerActive) {
     btnRoll.disabled = true;
     btnRoll.style.cursor = 'not-allowed';
+    playSound('dice', 'single');
     showDiceAnimation(Math.trunc(Math.random() * 6) + 1, function() {
       // 2. Generate the actual dice roll
       const dice = Math.trunc(Math.random() * 6) + 1;
@@ -88,6 +91,7 @@ const rolleDice = () => {
 
 const holdFunction = () => {
   if (playing && !window.isMultiplayerActive) {
+    playSound('hold', 'single');
     scores[activePlayer] += currentScore;
     document.getElementById(`score--${activePlayer}`).textContent = scores[activePlayer];
     if (scores[activePlayer] >= 100) {
