@@ -1,117 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
 
-  <!-- SEO Meta Tags -->
-  <title>Pig Game - Multiplayer</title>
-  <meta name="description" content="Play the classic Pig Game online! Enjoy single-player or real-time multiplayer dice action with friends. Responsive, animated, and fun.">
-  <meta name="keywords" content="Pig Game, Multiplayer, Dice Game, Online Game, Board Game, JavaScript Game, Play with Friends">
-  <meta name="author" content="Your Name or Team Name">
+    <!-- SEO Meta Tags -->
+    <title>Pig Game - Multiplayer</title>
+    <meta name="description" content="Play the classic Pig Game online! Enjoy single-player or real-time multiplayer dice action with friends. Responsive, animated, and fun.">
+    <meta name="keywords" content="Pig Game, Multiplayer, Dice Game, Online Game, Board Game, JavaScript Game, Play with Friends">
+    <meta name="author" content="Your Name or Team Name">
 
-  <!-- Open Graph / Facebook -->
-  <meta property="og:title" content="Pig Game - Multiplayer" />
-  <meta property="og:description" content="Play the classic Pig Game online! Enjoy single-player or real-time multiplayer dice action with friends." />
-  <meta property="og:image" content="https://piggy-ri0h.onrender.com/img/dice-6.png" />
-  <meta property="og:url" content="https://piggy-ri0h.onrender.com//" />
-  <meta property="og:type" content="website" />
+    <!-- Open Graph / Facebook -->
+    <meta property="og:title" content="Pig Game - Multiplayer" />
+    <meta property="og:description" content="Play the classic Pig Game online! Enjoy single-player or real-time multiplayer dice action with friends." />
+    <meta property="og:image" content="/img/dice-6.png" />
+    <meta property="og:type" content="website" />
 
-  <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Pig Game - Multiplayer" />
-  <meta name="twitter:description" content="Play the classic Pig Game online! Enjoy single-player or real-time multiplayer dice action with friends." />
-  <meta name="twitter:image" content="https://piggy-ri0h.onrender.com/img/dice-6.png" />
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Pig Game - Multiplayer" />
+    <meta name="twitter:description" content="Play the classic Pig Game online! Enjoy single-player or real-time multiplayer dice action with friends." />
+    <meta name="twitter:image" content="/img/dice-6.png" />
 
-  <!-- Stylesheets -->
-  <link rel="preload" href="./css/style.css" as="style" onload="this.rel='stylesheet'">
-  <link rel="preload" href="./css/multiplayer.css" as="style" onload="this.rel='stylesheet'">
-  <link rel="shortcut icon" href="./img/dice-6.png" type="image/x-icon" />
-</head>
+    <link rel="shortcut icon" href="/img/dice-6.png" type="image/x-icon" />
+  </head>
   <body>
-    <main>
-      <section class="player player--0 player--active">
-        <h2 class="name" id="name--0">Player 1</h2>
-        <p class="score" id="score--0">0</p>
-        <div class="current">
-          <p class="current-label">Current</p>
-          <p class="current-score" id="current--0">0</p>
-        </div>
-      </section>
-      <section class="player player--1">
-        <h2 class="name" id="name--1">Player 2</h2>
-        <p class="score" id="score--1">0</p>
-        <div class="current">
-          <p class="current-label">Current</p>
-          <p class="current-score" id="current--1">0</p>
-        </div>
-      </section>
-
-      <img src="./img/dice-5.png" alt="Playing dice" class="dice" />
-      <button class="btn btn--new">🔄 New game</button>
-      <button class="btn btn--roll">🎲 Roll dice</button>
-      <button class="btn btn--hold">📥 Hold</button>
-
-      <!-- Modal -->
-      <button class="rules-btn show-modal" id="draggable-btn">📔</button>
-      <div class="modal hidden">
-        <button class="close-modal-btn">&times;</button>
-        <h2>📖 Game Rules</h2>
-        <ul>
-          <li><b>Welcome to the Pig Game!!</b></li>
-          <br />
-          <li>Dice numbers range from 1 - 6.</li>
-          <li>Whatever you roll gets added to your current Score.</li>
-          <li>
-            Clicking <b>Hold</b>, The Score get recorded and player turns are
-            switched.
-          </li>
-          <li>
-            Also,
-            <b
-              >Getting a roll
-              <img
-                width="30px"
-                src="./img/dice-1.png"
-                alt="1"
-                srcset="./img/dice-1.png" /></b
-            >, causes you to lose your current score and switch player turn.
-          </li>
-          <li>The first person to reach 100 Score wins 🏆. <b>Good luck</b></li>
-        </ul>
-      </div>
-      <div class="modal-overlay hidden"></div>
-
-      <!-- Confetti -->
-      <img
-        class="confetti-img1 hidden"
-        src="./img/confetti-animation.gif"
-        alt="confetti Image1"
-      />
-      <img
-        class="confetti-img2 hidden"
-        src="./img/confetti-animation.gif"
-        alt="confetti Image2"
-      />
-
-      <!-- Transition -->
-      <img src="./img/nextGif.gif" alt="Next Gif" class="nextGif hidden" />
-      <img src="./img/nextGif.gif" alt="Next Gif" class="nextGif2 hidden" />
-
-      <!-- Loader -->
-      <div class="hidden" id="anim">
-        <img class="loadingGif" src="./img/loadingGif.gif" alt="Loading Gif" />
-        <div class="overlay"></div>
-      </div>
-    </main>
-
-    <!-- game script -->
-    <!-- <script id="single" src="./js/script.js"></script> -->
-    <script type="module" src="./js/script.js" defer></script>
-    <script type="module" src="./js/multiplayer.js" defer></script>
-
-    <!-- Socket.IO Client -->
-    <script src="./js/socket.io.min.js"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
